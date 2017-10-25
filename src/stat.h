@@ -86,7 +86,10 @@ extern char timestr[];
 #define COUNTER_MAX_KMV_PAGES      18   // max kmv pages
 #define COUNTER_HASH_BUCKET        19   // max reduce bucket
 #define COUNTER_PEAKMEM_USE        20   // peak memory usage
-#define COUNTER_NUM                21
+#define COUNTER_POWER_LIMIT        21   // power limit 
+#define COUNTER_PACKAGE_ENERGY     22   // PACKAGE energy
+#define COUNTER_DRAM_ENERGY        23   // DRAM energy
+#define COUNTER_NUM                24
 
 /// Events
 #define EVENT_COMPUTE_APP          "event_compute_app"          // application computation

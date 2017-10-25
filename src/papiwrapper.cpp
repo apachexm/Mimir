@@ -28,8 +28,6 @@ void papi_uinit()
 {
 }
 
-void papi_powercap_print(); 
-
 #define MAX_powercap_EVENTS 64
 int EventSet = PAPI_NULL;
 long long oldvalues[MAX_powercap_EVENTS];
@@ -97,6 +95,9 @@ void papi_powercap_uinit() {
     int retval = PAPI_stop(EventSet, oldvalues);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_stop error!\n");
 
+    papi_powercap_record();
+    papi_powercap(1.0); 
+
     retval = PAPI_cleanup_eventset(EventSet);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_cleanup_eventset error!\n");
     
@@ -125,6 +126,27 @@ void papi_powercap_print() {
     for (int i = 0; i < num_events; i++) {
         fprintf(stdout, "EVENT: %s\tVALUE: %.02lf\n",
             event_names[i], (double)newvalues[i]);
+    }
+}
+
+void papi_powercap_record() {
+    int retval = PAPI_read(EventSet, newvalues);
+    if (retval != PAPI_OK) {
+        LOG_ERROR("PAPI_read error!\n");
+    }
+    for (int i = 0; i < num_events; i++) {
+        if (!(strstr(event_names[i], "SUBZONE"))
+            && strstr(event_names[i], "POWER_LIMIT_A_UW")) {
+            PROFILER_RECORD_COUNT(COUNTER_POWER_LIMIT, newvalues[i], OPMAX);
+        }
+        if (!(strstr(event_names[i], "SUBZONE")) 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_PACKAGE_ENERGY, newvalues[i], OPMAX);
+        }
+        if (strstr(event_names[i], "SUBZONE") 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_DRAM_ENERGY, newvalues[i], OPMAX);
+        }
     }
 }
 

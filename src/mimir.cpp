@@ -39,7 +39,8 @@ void mimir_init(){
 #if HAVE_LIBPAPI 
         papi_init();
         papi_powercap_init();
-        papi_powercap(LIMIT_SCALE);        
+        papi_powercap(LIMIT_SCALE);
+        //papi_powercap_record(); 
 #else
         LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
 #endif
@@ -50,7 +51,6 @@ void mimir_finalize()
 {
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI
-        papi_powercap(1.0); 
         papi_powercap_uinit();       
         papi_uinit();
 #else

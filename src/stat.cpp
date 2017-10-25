@@ -55,6 +55,9 @@ const char *counter_str[COUNTER_NUM] = {
     "max_kmv_pages",
     "hash_bucket",
     "peakmem_use",
+    "power_limit",
+    "package_energy",
+    "dram_energy",
 };
 
 Tracker_info tracker_info;
