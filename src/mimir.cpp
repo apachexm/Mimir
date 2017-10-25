@@ -15,7 +15,7 @@
 #include "hbwmalloc.h"
 #endif
 
-#include "powerlimit.h"
+#include "papiwrapper.h"
 
 void get_default_values();
 
@@ -36,16 +36,26 @@ void mimir_init(){
     hbw_set_policy(HBW_POLICY_BIND);   
 #endif
     if (LIMIT_POWER) {
-        init_power_limit();
-        set_power_limit(LIMIT_SCALE);        
+#if HAVE_LIBPAPI 
+        papi_init();
+        papi_powercap_init();
+        papi_powercap(LIMIT_SCALE);        
+#else
+        LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
+#endif
     }
 }
 
 void mimir_finalize()
 {
     if (LIMIT_POWER) {
-        set_power_limit(1.0);
-        uinit_power_limit();
+#if HAVE_LIBPAPI
+        papi_powercap(1.0); 
+        papi_powercap_uinit();       
+        papi_uinit();
+#else
+        LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
+#endif
     }
     if (STAT_FILE) {
         mimir_stat(STAT_FILE);

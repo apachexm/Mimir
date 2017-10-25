@@ -6,11 +6,20 @@
  *     See COPYRIGHT in top-level directory.
  */
 
-#ifndef MIMIR_POWER_LIMIT
-#define MIMIR_POWER_LIMIT
+#ifndef MIMIR_PAPI_WRAPPER_H
+#define MIMIR_PAPI_WRAPPER_H
 
-void init_power_limit();
-void uinit_power_limit();
-void set_power_limit(double scale);
+#include "ac_config.h"
+
+#if HAVE_LIBPAPI
+
+void papi_init();
+void papi_uinit();
+
+void papi_powercap_init();
+void papi_powercap_uinit();
+void papi_powercap(double scale);
+
+#endif
 
 #endif

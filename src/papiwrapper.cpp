@@ -8,33 +8,40 @@
 
 #include "log.h"
 #include "stat.h"
-#include "powerlimit.h"
 #include "globals.h"
-#include "ac_config.h"
-
-#define MAX_powercap_EVENTS 64
+#include "papiwrapper.h"
 
 #if HAVE_LIBPAPI
+
 #include "papi.h"
+
+void papi_init()
+{
+    // Init PAPI
+    int retval = PAPI_library_init( PAPI_VER_CURRENT );
+    if (retval != PAPI_VER_CURRENT) {
+        LOG_ERROR("PAPI_library_init failed! ret=%d\n", retval);
+    }
+}
+
+void papi_uinit()
+{
+}
+
+void papi_powercap_print(); 
+
+#define MAX_powercap_EVENTS 64
 int EventSet = PAPI_NULL;
 long long oldvalues[MAX_powercap_EVENTS];
 long long newvalues[MAX_powercap_EVENTS];
 int limit_map[MAX_powercap_EVENTS];
-int num_events = 0, num_limits = 0, retval = -1;
+int num_events = 0, num_limits = 0;
 char event_names[MAX_powercap_EVENTS][PAPI_MAX_STR_LEN];
-#endif
 
-void init_power_limit() {
-#if HAVE_LIBPAPI
-    int cid, powercap_cid = -1, numcmp, r, code;
+void papi_powercap_init() {
+    int cid, powercap_cid = -1, numcmp, r, code, retval;
     const PAPI_component_info_t *cmpinfo = NULL;
    
-    // Init PAPI
-    retval = PAPI_library_init( PAPI_VER_CURRENT );
-    if (retval != PAPI_VER_CURRENT) {
-        LOG_ERROR("PAPI_library_init failed! ret=%d\n", retval);
-    }
-
     // Find powercap component
     numcmp = PAPI_num_components();
     for (cid = 0; cid < numcmp; cid ++) {
@@ -43,13 +50,14 @@ void init_power_limit() {
         }
         if ( strstr(cmpinfo->name, "powercap")) {
             powercap_cid = cid;
-        }
-        if (cmpinfo->disabled) {
-            LOG_ERROR("powercap component disabled: %s\n", cmpinfo->disabled_reason);
+            if (cmpinfo->disabled) {
+                LOG_ERROR("powercap component disabled: %s\n", cmpinfo->disabled_reason);
+            }
+            break;
         }
     }
     if (cid == numcmp) {
-        LOG_ERROR("No powercap component found\n");
+        LOG_ERROR("No powercap component found numcmp=%d\n", numcmp);
     }
 
     // Add power events
@@ -83,14 +91,10 @@ void init_power_limit() {
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_read error!ret=%d\n", retval);
     }
-#else
-    LOG_ERROR("No PAPI library found!\n");
-#endif
 }
 
-void uinit_power_limit() {
-#if HAVE_LIBPAPI
-    retval = PAPI_stop(EventSet, oldvalues);
+void papi_powercap_uinit() {
+    int retval = PAPI_stop(EventSet, oldvalues);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_stop error!\n");
 
     retval = PAPI_cleanup_eventset(EventSet);
@@ -98,27 +102,23 @@ void uinit_power_limit() {
     
     retval = PAPI_destroy_eventset(&EventSet);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_destroy_eventset error!\n"); 
-#endif
 }
 
-void set_power_limit(double scale) {
-#if HAVE_LIBPAPI
+void papi_powercap(double scale) {
     for (int i = 0; i < num_events; i++) {
         newvalues[i] = oldvalues[i];
     }
     for (int i = 0; i < num_limits; i++) {
         newvalues[limit_map[i]] = (long long)(newvalues[limit_map[i]] * scale);
     }
-    retval = PAPI_write(EventSet, newvalues);
+    int retval = PAPI_write(EventSet, newvalues);
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_write error!\n");
     }
-#endif
 }
 
-void print_power_limit() {
-#if HAVE_LIBPAPI
-    retval = PAPI_read(EventSet, newvalues);
+void papi_powercap_print() {
+    int retval = PAPI_read(EventSet, newvalues);
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_read error!\n");
     }
@@ -126,7 +126,7 @@ void print_power_limit() {
         fprintf(stdout, "EVENT: %s\tVALUE: %.02lf\n",
             event_names[i], (double)newvalues[i]);
     }
-#endif
 }
 
+#endif
 
