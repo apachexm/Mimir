@@ -7,6 +7,9 @@ library.
 The code is still under development. If you find any problems, please contact us
 at taogao@udel.edu.
 
+Find more information on Mimir website at
+[tauferlab.github.io/Mimir/](https://tauferlab.github.io/Mimir/).
+
 # Publications
 Tao Gao, Yanfei Guo, Boyu Zhang, Pietro Cicotti, Yutong Lu, Pavan Balaji, and
 Michela Taufer. Mimir: Memory-Efficient and Scalable MapReduce for Large
@@ -30,9 +33,6 @@ Systems (ICPADS) 2017.
 * ./configure --perfix=/mimir/install/directory
 * make
 * make install
-
-# Programming API
-Come soon
 
 # Configuration Parameters
 Mimir provides environment variables to tune the library parameters.
