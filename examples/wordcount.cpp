@@ -47,7 +47,9 @@ int main (int argc, char *argv[])
     }
     MimirContext<char*, uint64_t, char*, void>* ctx 
         = new MimirContext<char*, uint64_t, char*, void>(
-                                           input, output, MPI_COMM_WORLD,
+                                           input, output, 
+                                           "text", "text",
+                                           MPI_COMM_WORLD,
 #ifdef COMBINER
                                            combine
 #else
@@ -55,7 +57,7 @@ int main (int argc, char *argv[])
 #endif
                                            );
     ctx->map(map);
-    nunique = ctx->reduce(countword, NULL, true, "text");
+    nunique = ctx->reduce(countword, NULL, true);
     delete ctx;
 
     if (rank == 0) printf("nunique=%ld\n", nunique);

@@ -12,10 +12,9 @@
 
 #include "interface.h"
 
-int encode_varint(char *buf, uint64_t x);
-uint64_t decode_varint(char *buf);
-
-inline int text_file_repartition (const char* buffer, int bufsize, bool islast)
+inline int text_file_padding (uint64_t foff,
+                       const char* buffer, int bufsize,
+                       bool islast)
 {
     int idx = 0;
     for (idx = 0; idx < bufsize; idx ++) {
@@ -29,9 +28,24 @@ inline int text_file_repartition (const char* buffer, int bufsize, bool islast)
         return bufsize;
     }
 
+    if (idx == bufsize) {
+        LOG_ERROR("Cannot find the correct line seperator in a chunk!\
+                  The length of one line is too long for the text file???\n");
+    }
+
     return idx;
 }
 
+inline int binary_file_padding (uint64_t foff,
+                         const char* buffer, int bufsize,
+                         bool islast)
+{
+    return 0;
+}
+
+
+//int encode_varint(char *buf, uint64_t x);
+//uint64_t decode_varint(char *buf);
 
 #if 0
 template <typename KeyType, typename ValType, int KeyLen, int ValLen>

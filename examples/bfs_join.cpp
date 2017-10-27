@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
     MimirContext<int64_t,int64_t>* span_tree = new MimirContext<int64_t,int64_t>(
                                                  std::vector<std::string>(),
-                                                 output);
+                                                 output, "text", "text");
     tag = SPAN_TREE_TAG;
     span_tree->map(init_root, &tag);
 
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     } while(nactives[level - 1]);
 
     // Output span tree
-    span_tree->output("text");
+    span_tree->output();
 
     delete graph_loader;
     //delete edge_list;

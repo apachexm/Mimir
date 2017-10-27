@@ -8,8 +8,11 @@
 #ifndef MIMIR_FILE_PARSER_H
 #define MIMIR_FILE_PARSER_H
 
+#include "log.h"
+
 namespace MIMIR_NS {
 
+#if 0
 class FileParser {
   public:
     FileParser() {
@@ -40,6 +43,7 @@ class FileParser {
         return -1;
     }
 };
+#endif
 
 }
 

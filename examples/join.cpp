@@ -33,6 +33,12 @@ struct SingleVal {
     int      tag;   // dataset id
     ValType  val;   // autual value
 
+    std::stringstream& operator<<(std::stringstream& ss)
+    {
+        //ss << this->tag;
+        return ss;
+    }
+
     std::stringstream& operator>>(std::stringstream& ss)
     {
         ss << this->tag;
@@ -43,6 +49,12 @@ struct SingleVal {
 struct JoinedVal {
     ValType1     val1; // value from dataset 1
     ValType2     val2; // value from dataset 2
+
+    std::stringstream& operator<<(std::stringstream& ss)
+    {
+        //ss << this->tag;
+        return ss;
+    }
 
     std::stringstream& operator>>(std::stringstream& ss)
     {
@@ -106,19 +118,19 @@ int main (int argc, char *argv[])
     // Merge Dataset1 and Dataset2
     MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>* ctx 
         = new MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>(
-            std::vector<std::string>(), output, MPI_COMM_WORLD);
+            std::vector<std::string>(), output, "text", "text", MPI_COMM_WORLD);
     ctx->insert_data_handle(data1->get_data_handle());
     ctx->insert_data_handle(data2->get_data_handle());
 #ifndef SPLIT_HINT
     nitem = ctx->map(map);
 #else
-    nitem = ctx->map(map, NULL, true, false, "", true);
+    nitem = ctx->map(map, NULL, true, false, true);
     ctx->scan_split_keys(get_split_key);
 #endif
     delete data1;
     delete data2;
 
-    ngroup = ctx->reduce(reduce, NULL, true, "text");
+    ngroup = ctx->reduce(reduce, NULL, true);
 
 #ifndef SPLIT_HINT
     if (rank == 0) {

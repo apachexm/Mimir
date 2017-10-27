@@ -22,32 +22,30 @@
 #include "chunkmanager.h"
 #include "interface.h"
 #include "baseshuffler.h"
-//#include "dataformat.h"
 #include "fileparser.h"
 
 namespace MIMIR_NS {
 
 class InputSplit;
 
-enum InputFileFormat {TextFileFormat};
-
-template <InputFileFormat FileFormat,
-         typename KeyType, typename ValType,
+template <typename KeyType, typename ValType,
          typename InKeyType = char*, typename InValType = void>
 class FileReader : public Readable<InKeyType, InValType> {
   public:
 
-    static FileReader<FileFormat,KeyType,ValType,InKeyType,InValType> 
-        *getReader(MPI_Comm comm, ChunkManager<KeyType,ValType> *chunk_mgr,
-                   int (*padding_fn)(const char* buf, int buflen, bool islast),
+    static FileReader<KeyType,ValType,InKeyType,InValType> 
+        *getReader(std::string file_format,
+                   MPI_Comm comm, ChunkManager<KeyType,ValType> *chunk_mgr,
+                   int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
                    int keycount = 1, int valcount = 1,
                    int inkeycount = 1, int invalcount = 1);
-    static FileReader<FileFormat,KeyType,ValType,InKeyType,InValType> *reader;
+    static FileReader<KeyType,ValType,InKeyType,InValType> *reader;
 
   public:
 
-    FileReader(MPI_Comm comm,ChunkManager<KeyType,ValType> *chunk_mgr,
-               int (*padding_fn)(const char* buf, int buflen, bool islast),
+    FileReader(std::string file_format,
+               MPI_Comm comm,ChunkManager<KeyType,ValType> *chunk_mgr,
+               int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
                int keycount = 1, int valcount = 1,
                int inkeycount = 1, int invalcount = 1) {
 
@@ -56,6 +54,7 @@ class FileReader : public Readable<InKeyType, InValType> {
         this->padding_fn = padding_fn;
         this->keycount = keycount;
         this->valcount = valcount;
+        this->file_format = file_format;
 
         MPI_Comm_rank(reader_comm, &reader_rank);
         MPI_Comm_size(reader_comm, &reader_size);
@@ -126,6 +125,28 @@ class FileReader : public Readable<InKeyType, InValType> {
 
     virtual uint64_t get_record_count() { return record_count; }
 
+    int check_integrity(char *buffer, int len, bool islast) {
+        if (len == 0) return -1;
+
+        int i = 0;
+        for (i = 0; i < len; i++) {
+            if(*(buffer + i) == '\n')
+                break;
+        }
+
+        if (i < len) {
+            buffer[i] = '\0';
+            return i + 1;
+        }
+
+        if (islast) {
+            buffer[len] = '\0';
+            return len + 1;
+        }
+
+        return -1;
+    }
+
     virtual int read(InKeyType *key, InValType *val) {
 
         if (state.cur_chunk.fileseg == NULL)
@@ -135,31 +156,27 @@ class FileReader : public Readable<InKeyType, InValType> {
         while(!is_empty) {
 
             char *ptr = buffer + state.start_pos; 
-            //int skip_count = record->get_skip_size(ptr, state.win_size);
-            //state.start_pos += skip_count;
-            //state.win_size -= skip_count;
-
-            //ptr = buffer + state.start_pos;
-            //record->set_buffer(ptr);
             bool islast = is_last_block();
             if (state.win_size > 0
-                && parser.to_line(ptr, (int)state.win_size, islast) != -1) {
-                //&& record->get_next_record_size(ptr, state.win_size, islast) != -1) {
-                //int move_count = record->get_record_size();
-                //*key = (InKeyType)ptr;
-                int move_count = ser->key_from_bytes(key, ptr, (int)state.win_size);
-                //int move_count = strlen((const char*)(*key)) + 1;
-                //int move_count = ser->get_key_bytes(key);
+                && check_integrity(ptr, (int)state.win_size, islast) != -1) {
+                int move_count = 0;
+                // Binary format
+                if (file_format == "binary") {
+                    move_count = ser->kv_from_bytes(key, val,
+                                                    ptr, (int)state.win_size);
+                } else if (file_format == "text") {
+                    move_count = ser->kv_from_txt(key, val,
+                                                  ptr, (int)state.win_size);
+                }
                 if ((uint64_t)move_count >= state.win_size) {
                     state.win_size = 0;
                     state.start_pos = 0;
-                }
-                else {
+                } else {
                     state.start_pos += move_count;
                     state.win_size -= move_count;
+                    ptr += move_count;
                 }
                 record_count ++;
-                //return record;
                 return true;
             }
             else {
@@ -240,9 +257,10 @@ class FileReader : public Readable<InKeyType, InValType> {
         PROFILER_RECORD_COUNT(COUNTER_FILE_SIZE, new_chunk.chunksize, OPSUM);
 
         if (chunk_mgr->has_head(state.cur_chunk) && cont_chunk == false) {
-            int count = padding_fn(buffer + state.start_pos,
-                                       (int)state.win_size,
-                                       chunk_mgr->is_file_end(state.cur_chunk));
+            int count = padding_fn(state.cur_chunk.fileoff + state.start_pos,
+                                   buffer + state.start_pos,
+                                   (int)state.win_size,
+                                   chunk_mgr->is_file_end(state.cur_chunk));
             chunk_mgr->send_head(state.cur_chunk, buffer, count);
             state.start_pos += count;
             state.win_size -= count;
@@ -253,8 +271,6 @@ class FileReader : public Readable<InKeyType, InValType> {
         } else {
             state.has_tail = false;
         }
-
-        //print_state();
 
         return true;
     }
@@ -348,33 +364,35 @@ class FileReader : public Readable<InKeyType, InValType> {
     int             bufsize;
     ChunkManager<KeyType,ValType> * chunk_mgr;
     BaseShuffler<KeyType,ValType> * shuffler;
-    FileParser      parser;
+    //FileParser parser;
     uint64_t        record_count;
-    int (*padding_fn)(const char* buf, int buflen, bool islast);
+    int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast);
 
     Serializer<InKeyType, InValType> *ser;
     int            keycount, valcount;
 
+    std::string     file_format;
     MPI_Comm        reader_comm;
     int             reader_rank;
     int             reader_size;
 };
 
-template <InputFileFormat FileFormat,
-         typename KeyType, typename ValType,
+template <typename KeyType, typename ValType,
          typename InKeyType = char*, typename InValType = void>
 class DirectFileReader 
-    : public FileReader<FileFormat, KeyType, ValType,
+    : public FileReader<KeyType, ValType,
                         InKeyType, InValType> {
 
   public:
-    DirectFileReader(MPI_Comm comm,
+    DirectFileReader(std::string file_format,
+                     MPI_Comm comm,
                      ChunkManager<KeyType, ValType> *chunk_mgr, 
-                     int (*padding_fn)(const char* buf, int buflen, bool islast),
+                     int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
                      int keycount = 1, int valcount = 1,
                      int inkeycount = 1, int invalcount = 1) 
-        : FileReader<FileFormat, KeyType, ValType, InKeyType, InValType> 
-        (comm, chunk_mgr, padding_fn, keycount, valcount, inkeycount, invalcount) {
+        : FileReader<KeyType, ValType, InKeyType, InValType> 
+        (file_format, comm, chunk_mgr, padding_fn,
+         keycount, valcount, inkeycount, invalcount) {
     }
 
     ~DirectFileReader(){
@@ -461,19 +479,20 @@ class DirectFileReader
 
 };
 
-template <InputFileFormat FileFormat,
-         typename KeyType, typename ValType,
+template <typename KeyType, typename ValType,
          typename InKeyType = char*, typename InValType = void>
-class MPIFileReader : public FileReader<FileFormat, KeyType, ValType, InKeyType,InValType>{
+class MPIFileReader : public FileReader<KeyType, ValType, InKeyType,InValType>{
 
   public:
-    MPIFileReader(MPI_Comm comm,
+    MPIFileReader(std::string file_format, MPI_Comm comm,
                   ChunkManager<KeyType,ValType> *chunk_mgr,
-                  int (*padding_fn)(const char* buf, int buflen, bool islast),
+                  int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
                   int keycount = 1, int valcount = 1,
                   int inkeycount = 1, int invalcount = 1) 
-        : FileReader<FileFormat, KeyType, ValType, InKeyType,InValType>(comm, chunk_mgr, padding_fn,
-                                                                        keycount, valcount, inkeycount, invalcount) {
+        : FileReader<KeyType, ValType, InKeyType,InValType>(file_format, comm,
+                                                            chunk_mgr, padding_fn,
+                                                            keycount, valcount,
+                                                            inkeycount, invalcount) {
     }
 
     ~MPIFileReader(){
@@ -792,30 +811,29 @@ protected:
 };
 #endif
 
-template <InputFileFormat FileFormat,
-         typename KeyType, typename ValType,
+template <typename KeyType, typename ValType,
          typename InKeyType, typename InValType>
-FileReader<FileFormat, KeyType, ValType,InKeyType, InValType>*                 \
-    FileReader<FileFormat, KeyType, ValType,InKeyType, InValType>::reader = NULL;
+FileReader<KeyType, ValType,InKeyType, InValType>*                 \
+    FileReader<KeyType, ValType,InKeyType, InValType>::reader = NULL;
 
-template <InputFileFormat FileFormat,
-         typename KeyType, typename ValType, typename InKeyType, typename InValType>
-FileReader<FileFormat, KeyType, ValType, InKeyType, InValType>* 
-    FileReader<FileFormat, KeyType, ValType, InKeyType, InValType>::getReader(
+template <typename KeyType, typename ValType, typename InKeyType, typename InValType>
+FileReader<KeyType, ValType, InKeyType, InValType>* 
+    FileReader<KeyType, ValType, InKeyType, InValType>::getReader(
+        std::string file_format,
         MPI_Comm comm,
         ChunkManager<KeyType, ValType> *mgr, 
-        int (*padding_fn)(const char* buf, int buflen, bool islast),
+        int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
         int keycount, int valcount, int inkeycount, int invalcount) {
     if (READ_TYPE == 0) {
         if (DIRECT_READ) {
-            reader = new DirectFileReader<FileFormat, KeyType, ValType, InKeyType, InValType>(comm, mgr, padding_fn,
+            reader = new DirectFileReader<KeyType, ValType, InKeyType, InValType>(file_format, comm, mgr, padding_fn,
                                                                                               keycount, valcount, inkeycount, invalcount);
         } else {
-            reader = new FileReader<FileFormat, KeyType, ValType, InKeyType, InValType>(comm, mgr, padding_fn,
+            reader = new FileReader<KeyType, ValType, InKeyType, InValType>(file_format, comm, mgr, padding_fn,
                                                                                         keycount, valcount, inkeycount, invalcount);
         }
     } else if (READ_TYPE == 1) {
-        reader = new MPIFileReader<FileFormat, KeyType, ValType, InKeyType, InValType>(comm, mgr, padding_fn,
+        reader = new MPIFileReader<KeyType, ValType, InKeyType, InValType>(file_format, comm, mgr, padding_fn,
                                                                                        keycount, valcount, inkeycount, invalcount);
     } else {
         LOG_ERROR("Error reader type %d\n", READ_TYPE);
