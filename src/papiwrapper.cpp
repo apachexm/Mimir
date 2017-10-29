@@ -15,8 +15,15 @@
 
 #include "papi.h"
 
-void papi_init()
+MPI_Comm papi_shared_comm;
+int papi_shared_rank, papi_shared_size;
+
+void papi_init(MPI_Comm shared_comm)
 {
+    papi_shared_comm = shared_comm;
+    MPI_Comm_rank(papi_shared_comm, &papi_shared_rank);
+    MPI_Comm_size(papi_shared_comm, &papi_shared_size);
+
     // Init PAPI
     int retval = PAPI_library_init( PAPI_VER_CURRENT );
     if (retval != PAPI_VER_CURRENT) {
@@ -80,8 +87,19 @@ void papi_powercap_init() {
         num_events ++;
         r = PAPI_enum_cmp_event(&code, PAPI_ENUM_EVENTS, powercap_cid);
     }
+}
 
-    retval = PAPI_start( EventSet );
+void papi_powercap_uinit() {
+
+    int retval = PAPI_cleanup_eventset(EventSet);
+    if (retval != PAPI_OK) LOG_ERROR("PAPI_cleanup_eventset error!\n");
+    
+    retval = PAPI_destroy_eventset(&EventSet);
+    if (retval != PAPI_OK) LOG_ERROR("PAPI_destroy_eventset error!\n"); 
+}
+
+void papi_start() {
+    int retval = PAPI_start( EventSet );
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_start error!ret=%d\n", retval); 
     }
@@ -91,26 +109,41 @@ void papi_powercap_init() {
     }
 }
 
-void papi_powercap_uinit() {
-    int retval = PAPI_stop(EventSet, oldvalues);
+void papi_stop() {
+    int retval = PAPI_read(EventSet, newvalues);
+    if (retval != PAPI_OK) {
+        LOG_ERROR("PAPI_read error!\n");
+    }
+    for (int i = 0; i < num_events; i++) {
+        if (!(strstr(event_names[i], "SUBZONE"))
+            && strstr(event_names[i], "POWER_LIMIT_A_UW")) {
+            PROFILER_RECORD_COUNT(COUNTER_POWER_LIMIT, newvalues[i], OPMAX);
+        }
+    }
+    MPI_Barrier(papi_shared_comm);
+    if (papi_shared_rank == 0) papi_powercap(1.0);
+    MPI_Barrier(papi_shared_comm);
+    retval = PAPI_stop(EventSet, newvalues);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_stop error!\n");
-
-    papi_powercap_record();
-    papi_powercap(1.0); 
-
-    retval = PAPI_cleanup_eventset(EventSet);
-    if (retval != PAPI_OK) LOG_ERROR("PAPI_cleanup_eventset error!\n");
-    
-    retval = PAPI_destroy_eventset(&EventSet);
-    if (retval != PAPI_OK) LOG_ERROR("PAPI_destroy_eventset error!\n"); 
+    for (int i = 0; i < num_events; i++) {
+        if (!(strstr(event_names[i], "SUBZONE")) 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_PACKAGE_ENERGY, newvalues[i], OPMAX);
+        }
+        if (strstr(event_names[i], "SUBZONE") 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_DRAM_ENERGY, newvalues[i], OPMAX);
+        }
+    }
 }
 
-void papi_powercap(double scale) {
+void papi_powercap(double scale) {    
     for (int i = 0; i < num_events; i++) {
         newvalues[i] = oldvalues[i];
     }
     for (int i = 0; i < num_limits; i++) {
         newvalues[limit_map[i]] = (long long)(newvalues[limit_map[i]] * scale);
+        printf("Set power limit=%lf!\n", newvalues[limit_map[i]] / 1e6);
     }
     int retval = PAPI_write(EventSet, newvalues);
     if (retval != PAPI_OK) {
@@ -129,6 +162,7 @@ void papi_powercap_print() {
     }
 }
 
+#if 0
 void papi_powercap_record() {
     int retval = PAPI_read(EventSet, newvalues);
     if (retval != PAPI_OK) {
@@ -149,6 +183,7 @@ void papi_powercap_record() {
         }
     }
 }
+#endif
 
 #endif
 

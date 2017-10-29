@@ -9,12 +9,15 @@
 #ifndef MIMIR_PAPI_WRAPPER_H
 #define MIMIR_PAPI_WRAPPER_H
 
+#include <mpi.h>
 #include "ac_config.h"
 
 #if HAVE_LIBPAPI
 
-void papi_init();
+void papi_init(MPI_Comm);
 void papi_uinit();
+void papi_start();
+void papi_stop();
 
 void papi_powercap_init();
 void papi_powercap_uinit();

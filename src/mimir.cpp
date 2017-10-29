@@ -19,11 +19,20 @@
 
 void get_default_values();
 
+MPI_Comm mimir_shared_comm;
+int mimir_shared_rank, mimir_shared_size;
+
 void mimir_init(){
     //MPI_Comm_dup(comm, &mimir_world_comm);
     mimir_world_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(MPI_COMM_WORLD, &mimir_world_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mimir_world_size);
+    MPI_Comm_split_type(mimir_world_comm, MPI_COMM_TYPE_SHARED,
+                        mimir_world_rank, MPI_INFO_NULL,
+                        &mimir_shared_comm);
+    MPI_Comm_rank(mimir_shared_comm, &mimir_shared_rank);
+    MPI_Comm_size(mimir_shared_comm, &mimir_shared_size);
+
     char hostname[1024];
     gethostname(hostname, 1024);
     printf("%d[%d] Mimir Initialize... (pid=%d,host=%s)\n",
@@ -37,10 +46,12 @@ void mimir_init(){
 #endif
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI 
-        papi_init();
+        papi_init(mimir_shared_comm);
         papi_powercap_init();
-        papi_powercap(LIMIT_SCALE);
-        //papi_powercap_record(); 
+        papi_start();
+        MPI_Barrier(mimir_shared_comm);
+        if (mimir_shared_rank == 0) papi_powercap(LIMIT_SCALE);
+        MPI_Barrier(mimir_shared_comm); 
 #else
         LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
 #endif
@@ -51,12 +62,15 @@ void mimir_finalize()
 {
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI
-        papi_powercap_uinit();       
+        papi_stop();
+        papi_powercap_uinit();      
         papi_uinit();
 #else
         LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
 #endif
     }
+    MPI_Comm_free(&mimir_shared_comm);
+
     if (STAT_FILE) {
         mimir_stat(STAT_FILE);
     }
