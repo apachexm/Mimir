@@ -37,13 +37,7 @@ void mimir_init(){
     gethostname(hostname, 1024);
     printf("%d[%d] Mimir Initialize... (pid=%d,host=%s)\n",
            mimir_world_rank, mimir_world_size, getpid(), hostname);
-    INIT_STAT();
     get_default_values();
-#if HAVE_LIBMEMKIND
-    printf("%d[%d] set hbw policy\n",
-           mimir_world_rank, mimir_world_size);
-    hbw_set_policy(HBW_POLICY_BIND);   
-#endif
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI 
         papi_init(mimir_shared_comm);
@@ -56,10 +50,21 @@ void mimir_init(){
         LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
 #endif
     }
+    INIT_STAT();
+#if HAVE_LIBMEMKIND
+    printf("%d[%d] set hbw policy\n",
+           mimir_world_rank, mimir_world_size);
+    hbw_set_policy(HBW_POLICY_BIND);   
+#endif
 }
 
 void mimir_finalize()
 {
+    if (STAT_FILE) {
+        mimir_stat(STAT_FILE);
+    }
+    else mimir_stat("Mimir");
+    UNINIT_STAT;
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI
         papi_stop();
@@ -70,12 +75,6 @@ void mimir_finalize()
 #endif
     }
     MPI_Comm_free(&mimir_shared_comm);
-
-    if (STAT_FILE) {
-        mimir_stat(STAT_FILE);
-    }
-    else mimir_stat("Mimir");
-    UNINIT_STAT;
 }
 
 void mimir_stat(const char* filename)

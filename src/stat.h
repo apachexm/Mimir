@@ -17,6 +17,9 @@
 #include <vector>
 #include <string>
 
+#include "ac_config.h"
+#include "config.h"
+#include "papiwrapper.h"
 #include "memory.h"
 
 enum OpType { OPSUM, OPMAX };
@@ -26,7 +29,10 @@ typedef struct _profiler_info {
 } Profiler_info;
 
 typedef struct _tracker_info {
-    double prev_wtime;
+    double  prev_wtime;
+#if HAVE_LIBPAPI 
+    int64_t prev_energy;
+#endif
 } Tracker_info;
 
 extern double init_wtime;
@@ -37,6 +43,10 @@ extern uint64_t *profiler_counter;
 
 extern Tracker_info tracker_info;
 extern std::vector<std::pair<std::string, double> > *tracker_event;
+
+#if HAVE_LIBPAPI
+extern std::vector<int64_t> *tracker_power;
+#endif
 
 extern const char *timer_str[];
 extern const char *counter_str[];
@@ -250,6 +260,30 @@ extern char timestr[];
 
 #else
 
+#if HAVE_LIBPAPI 
+
+#define TRACKER_START                                                          \
+{                                                                              \
+    if (mimir_world_rank == 0) {                                               \
+        tracker_event =                                                        \
+          new std::vector<std::pair<std::string,double> >[mimir_world_size];   \
+        if (LIMIT_POWER) {                                                     \
+            tracker_power = new std::vector<int64_t> [mimir_world_size];       \
+        }                                                                      \
+    }else{                                                                     \
+        tracker_event=new std::vector<std::pair<std::string,double> >[1];      \
+        if (LIMIT_POWER) {                                                     \
+            tracker_power = new std::vector<int64_t> [1];                      \
+        }                                                                      \
+    }                                                                          \
+    tracker_info.prev_wtime=MR_GET_WTIME();                                    \
+    if (LIMIT_POWER) {                                                         \
+        tracker_info.prev_energy=papi_powercap_energy();                       \
+    }                                                                          \
+}
+
+#else 
+
 #define TRACKER_START                                                          \
 {                                                                              \
     if (mimir_world_rank == 0) {                                               \
@@ -259,12 +293,51 @@ extern char timestr[];
         tracker_event=new std::vector<std::pair<std::string,double> >[1];      \
     }                                                                          \
     tracker_info.prev_wtime=MR_GET_WTIME();                                    \
+#endif                                                                         \
 }
+
+#endif
+
+#if HAVE_LIBPAPI 
+
+#define TRACKER_END                                                            \
+{                                                                              \
+    if (LIMIT_POWER) {                                                         \
+        delete [] tracker_power;                                               \
+    }                                                                          \
+    delete [] tracker_event;                                                   \
+}
+
+#else 
 
 #define TRACKER_END                                                            \
 {                                                                              \
     delete [] tracker_event;                                                   \
 }
+
+#endif
+
+#if HAVE_LIBPAPI 
+
+#define TRACKER_RECORD_EVENT(event_type)                                       \
+{                                                                              \
+    if (OUTPUT_TRACE) {                                                        \
+        double t_start = MR_GET_WTIME();                                       \
+        double t_prev = tracker_info.prev_wtime;                               \
+        tracker_event[0].push_back(std::make_pair(event_type, t_start-t_prev));\
+        double t_end = MR_GET_WTIME();                                         \
+        if (LIMIT_POWER) {                                                     \
+            int64_t prev_energy = tracker_info.prev_energy;                    \
+            int64_t cur_energy = papi_powercap_energy();                       \
+            int64_t avg_power = (cur_energy-prev_energy)/(t_start-t_prev);     \
+            tracker_power[0].push_back(avg_power);                             \
+            tracker_info.prev_energy = cur_energy;                             \
+        }                                                                      \
+        tracker_info.prev_wtime = t_end;                                       \
+    }                                                                          \
+}
+
+#else
 
 #define TRACKER_RECORD_EVENT(event_type)                                       \
 {                                                                              \
@@ -276,6 +349,97 @@ extern char timestr[];
         tracker_info.prev_wtime = t_end;                                       \
     }                                                                          \
 }
+
+#endif
+
+#if HAVE_LIBPAPI 
+
+#define TRACKER_PRINT(filename)                                                \
+{                                                                              \
+    int total_bytes=0, max_bytes=0;                                            \
+    std::vector<std::pair<std::string,double> >::iterator iter1;               \
+    std::vector<int64_t>::iterator iter2 = tracker_power[0].begin();           \
+    for(iter1=tracker_event[0].begin(); iter1!=tracker_event[0].end(); iter1++){\
+        max_bytes+=(int)strlen(iter1->first.c_str())+1;                         \
+        max_bytes+=(int)sizeof(iter1->second);                                  \
+        if (LIMIT_POWER) {                                                     \
+            max_bytes += (int)sizeof(*iter2);                                  \
+            iter2++;                                                           \
+        }                                                                      \
+    }                                                                          \
+    MPI_Reduce(&max_bytes, &total_bytes, 1, MPI_INT,                           \
+               MPI_MAX, 0, mimir_world_comm);                                  \
+    if (max_bytes>total_bytes) total_bytes=max_bytes;                          \
+    char *tmp=(char*)mem_aligned_malloc(MEMPAGE_SIZE, total_bytes);            \
+    if (mimir_world_rank==0){                                                  \
+        MPI_Status st;                                                         \
+        for(int i=0; i<mimir_world_size-1; i++){                               \
+            MPI_Recv(tmp, total_bytes, MPI_BYTE,                               \
+                     MPI_ANY_SOURCE, STAT_EVENT_TAG, mimir_world_comm, &st);   \
+            int recv_rank=st.MPI_SOURCE;                                       \
+            int recv_count=0;                                                  \
+            MPI_Get_count(&st, MPI_BYTE, &recv_count);                         \
+            int off=0;                                                         \
+            while (off<recv_count){                                            \
+                char *type=tmp+off;                                            \
+                off+=(int)strlen(type)+1;                                      \
+                double value=*(double*)(tmp+off);                              \
+                tracker_event[recv_rank].push_back(std::make_pair(type, value));\
+                off+=(int)sizeof(double);                                      \
+                if (LIMIT_POWER) {                                             \
+                    int64_t power=*(int64_t*)(tmp+off);                        \
+                    off += (int)sizeof(int64_t);                               \
+                    tracker_power[recv_rank].push_back(power);                 \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
+    }else{                                                                     \
+        int off=0;                                                             \
+        std::vector<std::pair<std::string,double> >::iterator iter1;           \
+        std::vector<int64_t>::iterator iter2 = tracker_power[0].begin();       \
+        for(iter1=tracker_event[0].begin(); iter1!=tracker_event[0].end(); iter1++){\
+            memcpy(tmp+off, iter1->first.c_str(), strlen(iter1->first.c_str())+1);\
+            off+=(int)strlen(iter1->first.c_str())+1;                           \
+            memcpy(tmp+off, &(iter1->second), sizeof(double));                  \
+            off+=(int)sizeof(iter1->second);                                    \
+            if (LIMIT_POWER) {                                                 \
+                memcpy(tmp+off, &(*iter2), sizeof(int64_t));                   \
+                off+=(int)sizeof(int64_t);                                     \
+                iter2++;                                                       \
+            }                                                                  \
+        }                                                                      \
+        MPI_Send(tmp, off, MPI_BYTE, 0, STAT_EVENT_TAG, mimir_world_comm);     \
+    }                                                                          \
+    mem_aligned_free(tmp);                                                     \
+    char fullname[1024];                                                       \
+    FILE *fp=NULL;                                                             \
+    if (mimir_world_rank==0){                                                  \
+        sprintf(fullname, "%s_%s_trace.txt", filename, timestr);               \
+        printf("filename=%s\n", fullname);                                     \
+        fp = fopen(fullname, "w+");                                            \
+        if (!fp) LOG_ERROR("Create file %s error!\n", fullname);               \
+        for(int i=0; i<mimir_world_size; i++){                                 \
+            fprintf(fp, "rank:%d,size:%d",i,mimir_world_size);                 \
+            std::vector<std::pair<std::string,double> >::iterator iter1;       \
+            std::vector<int64_t>::iterator iter2 = tracker_power[i].begin();   \
+            for(iter1=tracker_event[i].begin();                                \
+                iter1!=tracker_event[i].end(); iter1++){                       \
+                if (LIMIT_POWER) {                                             \
+                     fprintf(fp, ",%s:[%g %ld]", iter1->first.c_str(),         \
+                         iter1->second, *iter2);                               \
+                     iter2++;                                                  \
+                } else {                                                       \
+                     fprintf(fp, ",%s:%g", iter1->first.c_str(), iter1->second);\
+                }                                                              \
+            }                                                                  \
+            fprintf(fp, "\n");                                                 \
+        }                                                                      \
+        fclose(fp);                                                            \
+    }                                                                          \
+    MPI_Barrier(mimir_world_comm);                                             \
+}
+
+#else
 
 #define TRACKER_PRINT(filename)                                                \
 {                                                                              \
@@ -338,6 +502,8 @@ extern char timestr[];
     }                                                                          \
     MPI_Barrier(mimir_world_comm);                                             \
 }
+
+#endif
 
 #endif
 

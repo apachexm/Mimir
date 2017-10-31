@@ -62,3 +62,7 @@ const char *counter_str[COUNTER_NUM] = {
 
 Tracker_info tracker_info;
 std::vector <std::pair<std::string, double>> *tracker_event = NULL;
+
+#if HAVE_LIBPAPI 
+std::vector <int64_t> *tracker_power = NULL;
+#endif

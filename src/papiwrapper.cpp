@@ -15,6 +15,14 @@
 
 #include "papi.h"
 
+#define MAX_powercap_EVENTS 64
+int EventSet = PAPI_NULL;
+long long oldvalues[MAX_powercap_EVENTS];
+long long newvalues[MAX_powercap_EVENTS];
+int limit_map[MAX_powercap_EVENTS];
+int num_events = 0, num_limits = 0;
+char event_names[MAX_powercap_EVENTS][PAPI_MAX_STR_LEN];
+
 MPI_Comm papi_shared_comm;
 int papi_shared_rank, papi_shared_size;
 
@@ -34,14 +42,6 @@ void papi_init(MPI_Comm shared_comm)
 void papi_uinit()
 {
 }
-
-#define MAX_powercap_EVENTS 64
-int EventSet = PAPI_NULL;
-long long oldvalues[MAX_powercap_EVENTS];
-long long newvalues[MAX_powercap_EVENTS];
-int limit_map[MAX_powercap_EVENTS];
-int num_events = 0, num_limits = 0;
-char event_names[MAX_powercap_EVENTS][PAPI_MAX_STR_LEN];
 
 void papi_powercap_init() {
     int cid, powercap_cid = -1, numcmp, r, code, retval;
@@ -149,6 +149,20 @@ void papi_powercap(double scale) {
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_write error!\n");
     }
+}
+
+int64_t papi_powercap_energy() {
+    int retval = PAPI_read(EventSet, newvalues);
+    if (retval != PAPI_OK) {
+	    LOG_ERROR("PAPI_read error!\n");
+    }
+    for (int i = 0; i < num_events; i++) {
+	    if (!(strstr(event_names[i], "SUBZONE"))
+			    && strstr(event_names[i], "ENERGY_UJ")) {
+		    return newvalues[i];
+	    }
+    }
+    return 0;
 }
 
 void papi_powercap_print() {

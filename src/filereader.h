@@ -444,6 +444,7 @@ class DirectFileReader
             size_t param_bytes = ROUNDUP(remain_bytes, DISKPAGE_SIZE) * DISKPAGE_SIZE;
             PROFILER_RECORD_TIME_START;
             read_bytes = ::read(this->union_fp.posix_fd, buf, param_bytes);
+            if (read_bytes == -1) LOG_ERROR("Read file error! errno=%d\n", errno);
             PROFILER_RECORD_TIME_END(TIMER_PFS_INPUT);
             TRACKER_RECORD_EVENT(EVENT_DISK_FREADAT);
             if (read_bytes < (ssize_t)remain_bytes)

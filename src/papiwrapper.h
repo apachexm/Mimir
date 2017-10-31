@@ -22,8 +22,8 @@ void papi_stop();
 void papi_powercap_init();
 void papi_powercap_uinit();
 void papi_powercap(double scale);
-void papi_powercap_record();
- 
+int64_t papi_powercap_energy();
+
 #endif
 
 #endif
