@@ -60,11 +60,14 @@ void mimir_init(){
 
 void mimir_finalize()
 {
+    const char *filename = "Mimir";
     if (STAT_FILE) {
-        mimir_stat(STAT_FILE);
+        filename = STAT_FILE;
     }
-    else mimir_stat("Mimir");
-    UNINIT_STAT;
+    GET_CUR_TIME;
+    TRACKER_RECORD_EVENT(EVENT_COMPUTE_APP);
+    int64_t vmsize = get_mem_usage();
+    if (vmsize > peakmem) peakmem = vmsize;
     if (LIMIT_POWER) {
 #if HAVE_LIBPAPI
         papi_stop();
@@ -74,9 +77,13 @@ void mimir_finalize()
         LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
 #endif
     }
+    if (OUTPUT_STAT) PROFILER_PRINT(filename);
+    if (OUTPUT_TRACE) TRACKER_PRINT(filename);
+    UNINIT_STAT;
     MPI_Comm_free(&mimir_shared_comm);
 }
 
+#if 0
 void mimir_stat(const char* filename)
 {
     GET_CUR_TIME;
@@ -88,6 +95,7 @@ void mimir_stat(const char* filename)
     if (OUTPUT_STAT) PROFILER_PRINT(filename);
     if (OUTPUT_TRACE) TRACKER_PRINT(filename);
 }
+#endif
 
 int64_t convert_to_int64(const char *_str)
 {

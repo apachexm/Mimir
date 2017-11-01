@@ -329,7 +329,8 @@ extern char timestr[];
         if (LIMIT_POWER) {                                                     \
             int64_t prev_energy = tracker_info.prev_energy;                    \
             int64_t cur_energy = papi_powercap_energy();                       \
-            int64_t avg_power = (cur_energy-prev_energy)/(t_start-t_prev);     \
+            int64_t avg_power =                                                \
+                     (int64_t)((cur_energy-prev_energy)/(t_start-t_prev));     \
             tracker_power[0].push_back(avg_power);                             \
             tracker_info.prev_energy = cur_energy;                             \
         }                                                                      \
