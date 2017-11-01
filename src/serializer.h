@@ -249,7 +249,7 @@ class txtstream {
         int bytesize = 0;
         std::stringstream ss;
         ss << buf;
-        int strsize = strlen(buf) + 1;
+        int strsize = (int)strlen(buf) + 1;
         for (int i = 0; i < count; i++) {
             ss >> obj[i];
         }
@@ -283,7 +283,7 @@ class txtstream<Type,typename std::enable_if<std::is_class<Type>::value, Type>::
         int bytesize = 0;
         std::stringstream ss;
         ss << buf;
-        int strsize = strlen(buf) + 1;
+        int strsize = (int)strlen(buf) + 1;
         for (int i = 0; i < count; i++) {
             obj[i] << ss;
         }
@@ -309,9 +309,9 @@ class txtstream<Type,typename std::enable_if<std::is_class<Type>::value, Type>::
 };
 
 template <>
-class txtstream<char*,void> {
+class txtstream<char*,char*> {
   public:
-    static int from_txt (char* obj, int count,
+    static int from_txt (char** obj, int count,
                          char *buf, int bufsize) {
         int bytesize = 0;
         std::stringstream ss;
@@ -324,7 +324,7 @@ class txtstream<char*,void> {
         return bytesize;
     }
 
-    static int to_txt (char* obj, int count,
+    static int to_txt (char** obj, int count,
                        char *buf, int bufsize) {
         int bytesize = 0;
         for (int i = 0; i < count; i++) {
@@ -342,9 +342,9 @@ class txtstream<char*,void> {
 };
 
 template <>
-class txtstream<const char*,void> {
+class txtstream<const char*,const char*> {
   public:
-    static int from_txt (const char* obj, int count,
+    static int from_txt (const char** obj, int count,
                          char *buf, int bufsize) {
         int bytesize = 0;
         std::stringstream ss;
@@ -357,7 +357,7 @@ class txtstream<const char*,void> {
         return bytesize;
     }
 
-    static int to_txt (const char* obj, int count,
+    static int to_txt (const char** obj, int count,
                        char *buf, int bufsize) {
         int bytesize = 0;
         for (int i = 0; i < count; i++) {
