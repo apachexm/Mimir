@@ -314,13 +314,12 @@ class txtstream<char*,char*> {
     static int from_txt (char** obj, int count,
                          char *buf, int bufsize) {
         int bytesize = 0;
-        std::stringstream ss;
-        ss << buf;
-        int strsize = (int)strlen(buf) + 1;
         for (int i = 0; i < count; i++) {
-            //ss >> obj[i];
+            obj[i] = buf;
+            int strsize = (int)strlen(buf) + 1;
+            bytesize += strsize;
+            buf += strsize;
         }
-        bytesize = strsize;
         return bytesize;
     }
 
@@ -347,13 +346,12 @@ class txtstream<const char*,const char*> {
     static int from_txt (const char** obj, int count,
                          char *buf, int bufsize) {
         int bytesize = 0;
-        std::stringstream ss;
-        ss << buf;
-        int strsize = (int)strlen(buf) + 1;
         for (int i = 0; i < count; i++) {
-            //ss >> obj[i];
+            obj[i] = buf;
+            int strsize = (int)strlen(buf) + 1;
+            bytesize += strsize;
+            buf += strsize;
         }
-        bytesize = strsize;
         return bytesize;
     }
 

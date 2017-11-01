@@ -7,7 +7,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 # configure files
 AC_CONFIG_HEADERS([src/ac_config.h])
-AC_CONFIG_FILES([Makefile src/Makefile examples/Makefile generator/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile examples/Makefile generator/Makefile test/Makefile])
 
 # check compiler
 AM_PROG_AR

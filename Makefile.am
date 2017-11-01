@@ -1,2 +1,2 @@
 CXX = mpicxx
-SUBDIRS = src examples generator
+SUBDIRS = src examples generator test

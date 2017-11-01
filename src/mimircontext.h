@@ -598,10 +598,21 @@ class MimirContext {
         this->outfile_format = outfile_format;
         this->user_padding = padding_fn;
 
-        if (infile_format != "text" && infile_format != "binary") {
+        if (infile_format == "text" ) {
+            if (std::is_pointer<InKeyType>::value
+                && std::is_void<InValType>::value) {
+            } else {
+                LOG_ERROR("The KV must be <char*,void> or <const char*,void> of text file!\n");
+            }
+        }
+        if (infile_format != "null" 
+            && infile_format != "text" 
+            && infile_format != "binary") {
             LOG_ERROR("Input file format (%s) error!\n", infile_format.c_str());
         }
-        if (outfile_format != "text" && outfile_format != "binary") {
+        if (outfile_format != "null"
+            && outfile_format != "text"
+            && outfile_format != "binary") {
             LOG_ERROR("Output file format (%s) error!\n", outfile_format.c_str());
         }
 
