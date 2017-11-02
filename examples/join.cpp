@@ -105,13 +105,17 @@ int main (int argc, char *argv[])
     // Get Dataset1
     int datatag = 0;
     MimirContext<KeyType, SingleVal, char*, void>* data1 
-        = new MimirContext<KeyType, SingleVal, char*, void>(input1);
+        = new MimirContext<KeyType, SingleVal, char*, void>(input1,
+                                                            std::string(),
+                                                            "text");
     datatag = DATA1_TAG;
     uint64_t nitem1 = data1->map(read_dataset, &datatag, false);
 
     // Get Dataset2
     MimirContext<KeyType, SingleVal, char*, void>* data2 
-        = new MimirContext<KeyType, SingleVal, char*, void>(input2);
+        = new MimirContext<KeyType, SingleVal, char*, void>(input2,
+                                                            std::string(),
+                                                            "text");
     datatag = DATA2_TAG;
     uint64_t nitem2 = data2->map(read_dataset, &datatag, false);
 

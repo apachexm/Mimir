@@ -78,7 +78,8 @@ int main(int argc, char **argv)
 
     // Load graphs
     MimirContext<int64_t,int64_t,char*,void> *graph_loader
-        = new MimirContext<int64_t,int64_t,char*,void>(input);
+        = new MimirContext<int64_t,int64_t,char*,void>(input, std::string(),
+                                                       "text");
     graph_loader->map(fileread);
 
     //MimirContext<int64_t,int64_t> *edge_list = new MimirContext<int64_t,int64_t>();
