@@ -53,8 +53,8 @@ class MimirContext {
     // Initialize Mimir Context
     MimirContext(std::vector<std::string> input_files = std::vector<std::string>(),
                  std::string output_files = std::string(),
-                 std::string infile_format = "binary",
-                 std::string outfile_format = "binary",
+                 std::string infile_format = "text",
+                 std::string outfile_format = "text",
                  MPI_Comm mimir_comm = MPI_COMM_WORLD,
                  void (*combine_fn)(Combinable<KeyType,ValType> *output,
                                     KeyType* key,

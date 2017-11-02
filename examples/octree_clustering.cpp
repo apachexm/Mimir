@@ -101,7 +101,7 @@ int main(int argc, char **argv)
         MimirContext<char, uint64_t, char, void> *level_ctx 
             = new MimirContext<char, uint64_t, char, void>(std::vector<std::string>(),
                                                                std::string(),
-                                                               "text", "text",
+                                                               "null", "null",
                                                                MPI_COMM_WORLD,
 #ifdef COMBINER
                                                                combine,
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
         = new MimirContext<char, uint64_t, char, void, FinalVal, uint64_t>(
                                                            std::vector<std::string>(),
                                                            output,
-                                                           "text", "text",
+                                                           "null", "text",
                                                            MPI_COMM_WORLD,
 #ifdef COMBINER
                                                            combine,

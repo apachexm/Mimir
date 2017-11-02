@@ -118,7 +118,7 @@ int main (int argc, char *argv[])
     // Merge Dataset1 and Dataset2
     MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>* ctx 
         = new MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>(
-            std::vector<std::string>(), output, "text", "text", MPI_COMM_WORLD);
+            std::vector<std::string>(), output, "null", "text", MPI_COMM_WORLD);
     ctx->insert_data_handle(data1->get_data_handle());
     ctx->insert_data_handle(data2->get_data_handle());
 #ifndef SPLIT_HINT

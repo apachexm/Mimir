@@ -16,7 +16,7 @@ results = []
 
 print statdir
 
-for filename in glob.glob(statdir):
+for filename in glob.glob(statdir+'/'+'*'):
     print filename
     with open(filename, "r") as ins:
         for line in ins:
@@ -58,3 +58,6 @@ print results
 for i in range(0, len(counts)):
     if counts[i] != results[i]:
         print "Does not match" + str(i)
+        exit(1)
+
+exit(0)

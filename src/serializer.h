@@ -593,9 +593,9 @@ class Serializer {
         if (!std::is_void<ValType>::value) {
             if (bufsize < 1) return -1;
             //*buffer = ' ';
-            buffer += 1;
-            bufsize -= 1;
-            sepsize += 1;
+            //buffer += 1;
+            //bufsize -= 1;
+            //sepsize += 1;
             valbytes = txtstream<ValType>::from_txt(val, valcount, buffer, bufsize);
             if (valbytes == -1) return -1;
             buffer += valbytes;
@@ -603,9 +603,9 @@ class Serializer {
         }
         if (bufsize < 1) return -1;
         //*buffer = '\n';
-        buffer += 1;
-        bufsize -= 1;
-        sepsize += 1;
+        //buffer += 1;
+        //bufsize -= 1;
+        //sepsize += 1;
 
         return keybytes + valbytes + sepsize;
     }

@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 
     MimirContext<int64_t,int64_t>* span_tree = new MimirContext<int64_t,int64_t>(
                                                  std::vector<std::string>(),
-                                                 output, "text", "text");
+                                                 output, "null", "text");
     tag = SPAN_TREE_TAG;
     span_tree->map(init_root, &tag);
 
