@@ -293,7 +293,6 @@ extern char timestr[];
         tracker_event=new std::vector<std::pair<std::string,double> >[1];      \
     }                                                                          \
     tracker_info.prev_wtime=MR_GET_WTIME();                                    \
-#endif                                                                         \
 }
 
 #endif
