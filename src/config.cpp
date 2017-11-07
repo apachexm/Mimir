@@ -25,6 +25,7 @@ int DIRECT_READ = 0;
 int DIRECT_WRITE = 0;
 
 // Features
+int STREAM_IO = 1;
 int WORK_STEAL = 0;
 int MAKE_PROGRESS = 0;
 int BIN_COUNT = 1000;

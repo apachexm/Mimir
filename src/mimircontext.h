@@ -619,13 +619,14 @@ class MimirContext {
         // Set default padding function
         if (this->user_padding == NULL) {
             if (infile_format == "text") {
-                this->user_padding = text_file_padding;
-            } else if (infile_format == "binary") {
-                if (!std::is_pointer<InKeyType>::value
-                    && !std::is_pointer<InValType>::value) {
-                    this->user_padding = binary_file_padding;
-                }
+                if (STREAM_IO) this->user_padding = text_file_padding;
             }
+            //else if (infile_format == "binary") {
+            //    if (!std::is_pointer<InKeyType>::value
+            //        && !std::is_pointer<InValType>::value) {
+            //        this->user_padding = binary_file_padding;
+            //    }
+            //}
         }
 
         database = user_database = NULL;

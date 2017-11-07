@@ -59,6 +59,7 @@ the max communication buffer count
 * MIMIR_DIRECT_WRITE (default: off) --- direct write
 
 ## Features
+* MIMIR_STREAM_IO (default: on) --- enable/disable stream I/O
 * MIMIR_WORK_STEAL (default: off) --- enable/disable work stealing
 * MIMIR_MAKE_PROGRESS (default: off) --- enable/disable aggressive
 progress pushing during nonblocking communication

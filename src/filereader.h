@@ -126,22 +126,37 @@ class FileReader : public Readable<InKeyType, InValType> {
     virtual uint64_t get_record_count() { return record_count; }
 
     int check_integrity(char *buffer, int len, bool islast) {
-        if (len == 0) return -1;
+        if (file_format == "binary") {
+            //if (!std::is_pointer<InKeyType>::value
+            //    && !std::is_pointer<InValType>::value) {
+            //    if (len < sizeof(InKeyType)*inkeycount + sizeof(InValType)*invalcount) {
+            //        return -1;
+            //    }
+            //} else {
+            //    return 0;
+            //}
+            LOG_ERROR("Do not support binary file format!\n");
+        } else if (file_format == "text") {
 
-        int i = 0;
-        for (i = 0; i < len; i++) {
-            if(*(buffer + i) == '\n')
-                break;
-        }
+            if (len == 0) return -1;
 
-        if (i < len) {
-            buffer[i] = '\0';
-            return i + 1;
-        }
+            int i = 0;
+            for (i = 0; i < len; i++) {
+                if(*(buffer + i) == '\n')
+                    break;
+            }
 
-        if (islast) {
-            buffer[len] = '\0';
-            return len + 1;
+            if (i < len) {
+                buffer[i] = '\0';
+                return i + 1;
+            }
+
+            if (islast) {
+                buffer[len] = '\0';
+                return len + 1;
+            }
+
+            return -1;
         }
 
         return -1;
