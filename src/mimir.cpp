@@ -264,6 +264,11 @@ void get_default_values()
     }
 
     /// Features
+    // shuffle cb or not
+    env = getenv("MIMIR_SHUFFLE_CB");
+    if (env) {
+        SHUFFLE_CB = atoi(env);
+    }
     // stream io or not
     env = getenv("MIMIR_STREAM_IO");
     if (env) {
@@ -465,7 +470,7 @@ Library configuration:\n\
 \tshuffle type: %d (0 - MPI_Alltoallv; 1 - MPI_Ialltoallv [%d,%d])\n\
 \treader type: %d (0 - POSIX; 1 - MPIIO) direct read=%d\n\
 \twriter type: %d (0 - POSIX; 1 - MPIIO) direct write=%d\n\
-\tstream I/O: %d, work stealing: %d (make progress=%d)\n\
+\tshuffle cb:%d, stream I/O: %d, work stealing: %d (make progress=%d)\n\
 \tload balance: balance=%d, factor=%.2lf, bin=%d, freq=%d\n\
 \tMCDRAM: use_mcdram=%d\n\
 \tpower capping: limit power=%d, limit scale=%.2lf\n\
@@ -474,7 +479,7 @@ Library configuration:\n\
         COMM_BUF_SIZE, DATA_PAGE_SIZE, INPUT_BUF_SIZE, BUCKET_COUNT, MAX_RECORD_SIZE,
         SHUFFLE_TYPE, MIN_SBUF_COUNT, MAX_SBUF_COUNT,
         READ_TYPE, DIRECT_READ, WRITE_TYPE, DIRECT_WRITE,
-        STREAM_IO, WORK_STEAL, MAKE_PROGRESS,
+        SHUFFLE_CB, STREAM_IO, WORK_STEAL, MAKE_PROGRESS,
         BALANCE_LOAD, BALANCE_FACTOR, BIN_COUNT, BALANCE_FREQ,
         USE_MCDRAM,
         LIMIT_POWER, LIMIT_SCALE,

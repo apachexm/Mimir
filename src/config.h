@@ -31,6 +31,7 @@ extern int DIRECT_READ;
 extern int DIRECT_WRITE;
 
 // Features
+extern int SHUFFLE_CB;
 extern int STREAM_IO;
 extern int WORK_STEAL;
 extern int MAKE_PROGRESS;

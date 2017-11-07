@@ -193,7 +193,7 @@ class MimirContext {
         // Map with shuffle
         if (do_shuffle) {
             // Map with combiner
-            if (!user_combine) {
+            if (!user_combine || !SHUFFLE_CB) {
                 if (split_hint) {
                     if (h != NULL) delete h;
                     h = new HashBucket<>(1, true);
