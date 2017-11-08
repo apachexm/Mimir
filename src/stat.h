@@ -358,7 +358,8 @@ extern char timestr[];
 {                                                                              \
     int total_bytes=0, max_bytes=0;                                            \
     std::vector<std::pair<std::string,double> >::iterator iter1;               \
-    std::vector<int64_t>::iterator iter2 = tracker_power[0].begin();           \
+    std::vector<int64_t>::iterator iter2;                                      \
+    if (LIMIT_POWER) iter2 = tracker_power[0].begin();                         \
     for(iter1=tracker_event[0].begin(); iter1!=tracker_event[0].end(); iter1++){\
         max_bytes+=(int)strlen(iter1->first.c_str())+1;                         \
         max_bytes+=(int)sizeof(iter1->second);                                  \
@@ -396,7 +397,8 @@ extern char timestr[];
     }else{                                                                     \
         int off=0;                                                             \
         std::vector<std::pair<std::string,double> >::iterator iter1;           \
-        std::vector<int64_t>::iterator iter2 = tracker_power[0].begin();       \
+        std::vector<int64_t>::iterator iter2;                                  \
+        if (LIMIT_POWER) iter2 = tracker_power[0].begin();                     \
         for(iter1=tracker_event[0].begin(); iter1!=tracker_event[0].end(); iter1++){\
             memcpy(tmp+off, iter1->first.c_str(), strlen(iter1->first.c_str())+1);\
             off+=(int)strlen(iter1->first.c_str())+1;                           \
@@ -421,7 +423,8 @@ extern char timestr[];
         for(int i=0; i<mimir_world_size; i++){                                 \
             fprintf(fp, "rank:%d,size:%d",i,mimir_world_size);                 \
             std::vector<std::pair<std::string,double> >::iterator iter1;       \
-            std::vector<int64_t>::iterator iter2 = tracker_power[i].begin();   \
+            std::vector<int64_t>::iterator iter2;                              \
+            if (LIMIT_POWER) iter2 = tracker_power[i].begin();                 \
             for(iter1=tracker_event[i].begin();                                \
                 iter1!=tracker_event[i].end(); iter1++){                       \
                 if (LIMIT_POWER) {                                             \
