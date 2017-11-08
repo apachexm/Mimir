@@ -16,11 +16,15 @@
 
 void papi_init(MPI_Comm);
 void papi_uinit();
+
 void papi_start();
 void papi_stop();
 
-void papi_powercap_init();
-void papi_powercap_uinit();
+void papi_event_init();
+void papi_event_uinit();
+
+void papi_print(); 
+
 void papi_powercap(double scale);
 int64_t papi_powercap_energy();
 

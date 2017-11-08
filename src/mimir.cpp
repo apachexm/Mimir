@@ -38,18 +38,11 @@ void mimir_init(){
     printf("%d[%d] Mimir Initialize... (pid=%d,host=%s)\n",
            mimir_world_rank, mimir_world_size, getpid(), hostname);
     get_default_values();
-    if (LIMIT_POWER) {
 #if HAVE_LIBPAPI 
-        papi_init(mimir_shared_comm);
-        papi_powercap_init();
-        papi_start();
-        MPI_Barrier(mimir_shared_comm);
-        if (mimir_shared_rank == 0) papi_powercap(LIMIT_SCALE);
-        MPI_Barrier(mimir_shared_comm); 
-#else
-        LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
+    papi_init(mimir_shared_comm);
+    papi_event_init();
+    papi_start();
 #endif
-    }
     INIT_STAT();
 #if HAVE_LIBMEMKIND
     printf("%d[%d] set hbw policy\n",
@@ -68,15 +61,12 @@ void mimir_finalize()
     TRACKER_RECORD_EVENT(EVENT_COMPUTE_APP);
     int64_t vmsize = get_mem_usage();
     if (vmsize > peakmem) peakmem = vmsize;
-    if (LIMIT_POWER) {
 #if HAVE_LIBPAPI
-        papi_stop();
-        papi_powercap_uinit();      
-        papi_uinit();
-#else
-        LOG_ERROR("No PAPI library (>= 5.5) found!\n");  
+    //papi_print();
+    papi_stop();
+    papi_event_uinit();      
+    papi_uinit();
 #endif
-    }
     if (OUTPUT_STAT) PROFILER_PRINT(filename);
     if (OUTPUT_TRACE) TRACKER_PRINT(filename);
     UNINIT_STAT;
