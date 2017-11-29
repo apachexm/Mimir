@@ -17,3 +17,10 @@ This folder includes various MapReduce examples written by Mimir.
 # Octree Clustering
 * oc - Basic Octree Clustering implementation
 * oc_cb - Octree Clustering with combiner
+
+# Mini Test Suites
+* minitest_map - Map Test
+* minitest_map_shuffle - Map + Shuffle Test
+* minitest_map_shuffle_reduce - Map + Shuffle + Reduce Test
+* minitest_map_shuffle_combiner - Map + Shuffle + Combiner Test
+* minitest_map_shuffle_io - Map + Shuffle + I/O Test

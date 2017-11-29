@@ -4,7 +4,7 @@ AM_CPPFLAGS = -I../src -g -Wno-write-strings -Wall -Wconversion     \
 AM_CXXFLAGS = -I../src -g -Wno-write-strings -Wall -Wconversion     \
 	      -fpermissive -DENABLE_PROFILER -DENABLE_TRACKER -DNDEBUG
 
-bin_PROGRAMS = wc wc_cb bfs bfs_join oc oc_cb join join_split
+bin_PROGRAMS = wc wc_cb bfs bfs_join oc oc_cb join join_split minitest_map minitest_map_shuffle minitest_map_shuffle_reduce minitest_map_shuffle_combiner minitest_map_shuffle_io
 
 wc_SOURCES = wordcount.cpp
 wc_LDFLAGS = $(AM_LDFLAGS)
@@ -43,3 +43,24 @@ join_split_CPPFLAGS = $(AM_CPPFLAGS) -DSPLIT_HINT
 join_split_CXXFLAGS = $(AM_CXXFLAGS) -DSPLIT_HINT
 join_split_LDFLAGS = $(AM_LDFLAGS)
 join_split_LDADD = -lmimir
+
+minitest_map_SOURCES = minitest_map.cpp
+minitest_map_LDFLAGS = $(AM_LDFLAGS)
+minitest_map_LDADD = -lmimir
+
+minitest_map_shuffle_SOURCES = minitest_map_shuffle.cpp
+minitest_map_shuffle_LDFLAGS = $(AM_LDFLAGS)
+minitest_map_shuffle_LDADD = -lmimir
+
+minitest_map_shuffle_reduce_SOURCES = minitest_map_shuffle_reduce.cpp
+minitest_map_shuffle_reduce_LDFLAGS = $(AM_LDFLAGS)
+minitest_map_shuffle_reduce_LDADD = -lmimir
+
+minitest_map_shuffle_combiner_SOURCES = minitest_map_shuffle_combiner.cpp
+minitest_map_shuffle_combiner_LDFLAGS = $(AM_LDFLAGS)
+minitest_map_shuffle_combiner_LDADD = -lmimir
+
+minitest_map_shuffle_io_SOURCES = minitest_map_shuffle_io.cpp
+minitest_map_shuffle_io_LDFLAGS = $(AM_LDFLAGS)
+minitest_map_shuffle_io_LDADD = -lmimir
+
