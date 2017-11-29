@@ -43,7 +43,7 @@ void mimir_init(){
     papi_event_init();
     papi_start();
 #endif
-    INIT_STAT();
+    INIT_STAT;
 #if HAVE_LIBMEMKIND
     printf("%d[%d] set hbw policy\n",
            mimir_world_rank, mimir_world_size);

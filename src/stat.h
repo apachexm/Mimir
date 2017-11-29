@@ -136,7 +136,7 @@ extern char timestr[];
 #define EVENT_DISK_MPIWRITEATALL   "event_disk_mpiwriteatall"   // MPI_File_write_at_all
 #define EVENT_DISK_MPICLOSE        "event_disk_mpiclose"        // MPI_File_close
 
-#define INIT_STAT()                                                            \
+#define INIT_STAT                                                              \
 {                                                                              \
     PROFILER_START;                                                            \
     TRACKER_START;                                                             \
