@@ -355,8 +355,9 @@ class MimirContext {
 #endif
         PROFILER_RECORD_COUNT(COUNTER_MAX_KVS, kv_records, OPMAX);
         PROFILER_RECORD_TIME(TIMER_MAP, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
         PROFILER_RECORD_COUNT(COUNTER_MAP_ENERGY, stop_e - start_e, OPSUM)
-
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: map done (KVs=%ld, peakmem=%ld)\n", kv_records, peakmem);
 
         return total_records;
@@ -455,8 +456,9 @@ class MimirContext {
         int64_t stop_e = papi_powercap_energy(); 
 #endif
         PROFILER_RECORD_TIME(TIMER_REDUCE, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
         PROFILER_RECORD_COUNT(COUNTER_REDUCE_ENERGY, stop_e - start_e, OPSUM)
-
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: reduce done\n");
 
         return total_records;
@@ -508,7 +510,9 @@ class MimirContext {
         int64_t stop_e = papi_powercap_energy(); 
 #endif
         PROFILER_RECORD_TIME(TIMER_OUTPUT, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
         PROFILER_RECORD_COUNT(COUNTER_OUTPUT_ENERGY, stop_e - start_e, OPSUM)
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: output done\n");
 
         return total_records;
