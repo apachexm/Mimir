@@ -14,6 +14,14 @@
 
 #if HAVE_LIBPAPI
 
+#include "papi.h"
+
+#define MAX_PAPI_EVENTS 64
+
+extern int num_events;
+extern long long event_values[MAX_PAPI_EVENTS];
+extern char event_names[MAX_PAPI_EVENTS][PAPI_MAX_STR_LEN];
+
 void papi_init(MPI_Comm);
 void papi_uinit();
 

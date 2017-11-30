@@ -118,7 +118,10 @@ class MimirContext {
         ChunkManager<KeyType,ValType> *chunk_mgr = NULL;
 
         TRACKER_RECORD_EVENT(EVENT_COMPUTE_APP);
-
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
         if (user_map == NULL)
             LOG_ERROR("Please set map callback\n");
 
@@ -346,7 +349,13 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
         PROFILER_RECORD_COUNT(COUNTER_MAX_KVS, kv_records, OPMAX);
+        PROFILER_RECORD_TIME(TIMER_MAP, stop_t - start_t, OPSUM)
+        PROFILER_RECORD_COUNT(COUNTER_MAP_ENERGY, stop_e - start_e, OPSUM)
 
         LOG_PRINT(DBG_GEN, "MapReduce: map done (KVs=%ld, peakmem=%ld)\n", kv_records, peakmem);
 
@@ -363,6 +372,11 @@ class MimirContext {
         FileWriter<OutKeyType,OutValType> *writer = NULL;
         Readable<KeyType,ValType> *input = NULL;
         Writable<OutKeyType,OutValType> *output = NULL;
+
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
 
         if (user_reduce == NULL) {
             LOG_ERROR("Please set reduce callback!\n");
@@ -436,6 +450,13 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
+        PROFILER_RECORD_TIME(TIMER_REDUCE, stop_t - start_t, OPSUM)
+        PROFILER_RECORD_COUNT(COUNTER_REDUCE_ENERGY, stop_e - start_e, OPSUM)
+
         LOG_PRINT(DBG_GEN, "MapReduce: reduce done\n");
 
         return total_records;
@@ -446,6 +467,11 @@ class MimirContext {
         typename SafeType<OutKeyType>::type key[keycount];
         typename SafeType<OutValType>::type val[valcount];
         Readable<OutKeyType,OutValType> *output = NULL;
+
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
 
         if (database == NULL)
             LOG_ERROR("No data to output!\n");
@@ -477,6 +503,12 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
+        PROFILER_RECORD_TIME(TIMER_OUTPUT, stop_t - start_t, OPSUM)
+        PROFILER_RECORD_COUNT(COUNTER_OUTPUT_ENERGY, stop_e - start_e, OPSUM)
         LOG_PRINT(DBG_GEN, "MapReduce: output done\n");
 
         return total_records;

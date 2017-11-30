@@ -14,17 +14,16 @@
 
 #if HAVE_LIBPAPI
 
-#include "papi.h"
-
-#define MAX_powercap_EVENTS 64
 int EventSet = PAPI_NULL;
-long long oldvalues[MAX_powercap_EVENTS];
-long long newvalues[MAX_powercap_EVENTS];
-int limit_map[MAX_powercap_EVENTS];
+long long oldvalues[MAX_PAPI_EVENTS];
+int limit_map[MAX_PAPI_EVENTS];
 int num_events = 0, num_limits = 0;
-char event_names[MAX_powercap_EVENTS][PAPI_MAX_STR_LEN];
+long long event_values[MAX_PAPI_EVENTS];
+char event_names[MAX_PAPI_EVENTS][PAPI_MAX_STR_LEN];
 
 const int eventlist[] = {
+    PAPI_TOT_CYC,
+    PAPI_TOT_INS,
     PAPI_L1_DCM,
     PAPI_L1_ICM,
     PAPI_L1_TCM,
@@ -39,6 +38,10 @@ const int eventlist[] = {
     PAPI_RES_STL,
     0
 };
+
+const char* nativeeventlist[] = {
+    NULL
+}; 
 
 MPI_Comm papi_shared_comm;
 int papi_shared_rank, papi_shared_size;
@@ -81,45 +84,54 @@ void papi_event_init() {
         num_events ++;
     }
 
-    // Add powercap events
-    if (LIMIT_POWER) { 
-        // Find powercap component
-        numcmp = PAPI_num_components();
-        for (cid = 0; cid < numcmp; cid ++) {
-            if ((cmpinfo = PAPI_get_component_info(cid)) == NULL) {
-                LOG_ERROR("PAPI_get_component_info failed\n");
-            }
-            if ( strstr(cmpinfo->name, "powercap")) {
-                powercap_cid = cid;
-                if (cmpinfo->disabled) {
-                    LOG_ERROR("powercap component disabled: %s\n", cmpinfo->disabled_reason);
-                }
-                break;
-            }
+    // Add native events
+    for (i = 0; nativeeventlist[i] != NULL; i++) {
+        int EventCode;
+        retval = PAPI_event_name_to_code(nativeeventlist[i], &EventCode);
+        if (retval != PAPI_OK) {
+            LOG_ERROR("Error from PAPI_event_name_to_code!\n");
         }
-        if (cid == numcmp) {
-            LOG_ERROR("No powercap component found numcmp=%d\n", numcmp);
-        }
-
-        code = PAPI_NATIVE_MASK;
-        r = PAPI_enum_cmp_event(&code, PAPI_ENUM_FIRST, powercap_cid);
-        while (r == PAPI_OK) {
-            retval = PAPI_event_code_to_name(code, event_names[num_events]);
-            if (retval != PAPI_OK) {
-                LOG_ERROR("Error from PAPI_event_code_to_name! retval=%d\n", retval);
-            }
-            retval = PAPI_add_event(EventSet, code);
-            if (retval != PAPI_OK) break;
-            if (!(strstr(event_names[num_events], "SUBZONE"))
-                && (strstr(event_names[num_events], "POWER_LIMIT"))) {
-                limit_map[num_limits] = num_events;
-                num_limits ++;
-            }
-            num_events ++;
-            r = PAPI_enum_cmp_event(&code, PAPI_ENUM_EVENTS, powercap_cid);
-        }
+        retval = PAPI_add_event(EventSet, EventCode);
+        if (retval != PAPI_OK) continue;
+        strcpy(event_names[num_events], nativeeventlist[i]);
+        num_events ++;
     }
-    printf("%d[%d] Events=%d, limit events=%d\n", papi_shared_rank, papi_shared_size, num_events, num_limits);
+
+
+    numcmp = PAPI_num_components();
+    for (cid = 0; cid < numcmp; cid ++) {
+	    if ((cmpinfo = PAPI_get_component_info(cid)) == NULL) {
+		    LOG_ERROR("PAPI_get_component_info failed\n");
+	    }
+	    if ( strstr(cmpinfo->name, "powercap")) {
+		    powercap_cid = cid;
+		    if (cmpinfo->disabled) {
+			    LOG_ERROR("powercap component disabled: %s\n", cmpinfo->disabled_reason);
+		    }
+		    break;
+	    }
+    }
+    if (cid == numcmp) {
+	    LOG_ERROR("No powercap component found numcmp=%d\n", numcmp);
+    }
+
+    code = PAPI_NATIVE_MASK;
+    r = PAPI_enum_cmp_event(&code, PAPI_ENUM_FIRST, powercap_cid);
+    while (r == PAPI_OK) {
+	    retval = PAPI_event_code_to_name(code, event_names[num_events]);
+	    if (retval != PAPI_OK) {
+		    LOG_ERROR("Error from PAPI_event_code_to_name! retval=%d\n", retval);
+	    }
+	    retval = PAPI_add_event(EventSet, code);
+	    if (retval != PAPI_OK) break;
+	    if (!(strstr(event_names[num_events], "SUBZONE"))
+			    && (strstr(event_names[num_events], "POWER_LIMIT"))) {
+		    limit_map[num_limits] = num_events;
+		    num_limits ++;
+	    }
+	    num_events ++;
+	    r = PAPI_enum_cmp_event(&code, PAPI_ENUM_EVENTS, powercap_cid);
+    }
 }
 
 void papi_event_uinit() {
@@ -148,71 +160,70 @@ void papi_start() {
 }
 
 void papi_stop() {
-    int retval = PAPI_read(EventSet, newvalues);
+    int retval = PAPI_read(EventSet, event_values);
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_read error!\n");
     }
+    // Recover Power Limit
     if (LIMIT_POWER) {
         for (int i = 0; i < num_events; i++) {
             if (!(strstr(event_names[i], "SUBZONE"))
                 && strstr(event_names[i], "POWER_LIMIT_A_UW")) {
-                PROFILER_RECORD_COUNT(COUNTER_POWER_LIMIT, newvalues[i], OPMAX);
+                PROFILER_RECORD_COUNT(COUNTER_POWER_LIMIT, event_values[i], OPMAX);
             }
         }
         MPI_Barrier(papi_shared_comm);
         if (papi_shared_rank == 0) papi_powercap(1.0);
         MPI_Barrier(papi_shared_comm);
     }
-    retval = PAPI_stop(EventSet, newvalues);
+    retval = PAPI_stop(EventSet, event_values);
     if (retval != PAPI_OK) LOG_ERROR("PAPI_stop error!\n");
-    if (LIMIT_POWER) {
-        for (int i = 0; i < num_events; i++) {
-            if (!(strstr(event_names[i], "SUBZONE")) 
-                && strstr(event_names[i], "ENERGY_UJ")) {
-                PROFILER_RECORD_COUNT(COUNTER_PACKAGE_ENERGY, newvalues[i], OPMAX);
-            }
-            if (strstr(event_names[i], "SUBZONE") 
-                && strstr(event_names[i], "ENERGY_UJ")) {
-                PROFILER_RECORD_COUNT(COUNTER_DRAM_ENERGY, newvalues[i], OPMAX);
-            }
-        }
+    for (int i = 0; i < num_events; i++) {
+        if (!(strstr(event_names[i], "SUBZONE")) 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_PACKAGE_ENERGY, event_values[i], OPMAX);
+	}
+	if (strstr(event_names[i], "SUBZONE") 
+            && strstr(event_names[i], "ENERGY_UJ")) {
+            PROFILER_RECORD_COUNT(COUNTER_DRAM_ENERGY, event_values[i], OPMAX);
+	}
     }
 }
 
 void papi_print() {
-    int retval = PAPI_read(EventSet, newvalues);
+    int retval = PAPI_read(EventSet, event_values);
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_read error!\n");
     }
     for (int i = 0; i < num_events; i++) {
         fprintf(stdout, "EVENT: %s\tVALUE: %.02lf\n",
-            event_names[i], (double)newvalues[i]);
+            event_names[i], (double)event_values[i]);
     }
 }
 
 void papi_powercap(double scale) {    
     for (int i = 0; i < num_events; i++) {
-        newvalues[i] = oldvalues[i];
+        event_values[i] = oldvalues[i];
     }
     for (int i = 0; i < num_limits; i++) {
-        newvalues[limit_map[i]] = (long long)(newvalues[limit_map[i]] * scale);
-        printf("Set power limit=%lf!\n", newvalues[limit_map[i]] / 1e6);
+        event_values[limit_map[i]] = (long long)(event_values[limit_map[i]] * scale);
+        //printf("Set power limit=%lf!\n", event_values[limit_map[i]] / 1e6);
     }
-    int retval = PAPI_write(EventSet, newvalues);
+    int retval = PAPI_write(EventSet, event_values);
     if (retval != PAPI_OK) {
         LOG_ERROR("PAPI_write error!\n");
     }
 }
 
 int64_t papi_powercap_energy() {
-    int retval = PAPI_read(EventSet, newvalues);
+    int retval = PAPI_read(EventSet, event_values);
     if (retval != PAPI_OK) {
 	    LOG_ERROR("PAPI_read error!\n");
     }
     for (int i = 0; i < num_events; i++) {
 	    if (!(strstr(event_names[i], "SUBZONE"))
 			    && strstr(event_names[i], "ENERGY_UJ")) {
-		    return newvalues[i];
+		    return event_values[i];
 	    }
     }
     return 0;

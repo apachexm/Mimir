@@ -57,21 +57,24 @@ extern char timestr[];
 
 // Timers
 #define TIMER_TOTAL                0    // Total time
-#define TIMER_PFS_INPUT            1    // PFS input time
-#define TIMER_PFS_OUTPUT           2    // PFS output time
-#define TIMER_COMM_A2A             3    // MPI_Alltoall
-#define TIMER_COMM_A2AV            4    // MPI_Alltoallv
-#define TIMER_COMM_RDC             5    // MPI_Allreduce
-#define TIMER_COMM_BLOCK           6    // blocking time
-#define TIMER_COMM_BARRIER         7    // MPI_Barrier
-#define TIMER_COMM_ALLGATHER       8    // MPI_Allgather
-#define TIMER_COMM_ALLGATHERV      9    // MPI_Allgather
-#define TIMER_MEM_ALLOCATE        10    // memory allocation
-#define TIMER_LB_CHECK            11    // check
-#define TIMER_LB_RP               12    // repartition
-#define TIMER_LB_MIGRATE          13    // migrate
-#define TIMER_LB_SPLIT            14    // split
-#define TIMER_NUM                 15
+#define TIMER_MAP                  1    // Map time
+#define TIMER_REDUCE               2    // Reduce time
+#define TIMER_OUTPUT               3    // Output time
+#define TIMER_PFS_INPUT            4    // PFS input time
+#define TIMER_PFS_OUTPUT           5    // PFS output time
+#define TIMER_COMM_A2A             6    // MPI_Alltoall
+#define TIMER_COMM_A2AV            7    // MPI_Alltoallv
+#define TIMER_COMM_RDC             8    // MPI_Allreduce
+#define TIMER_COMM_BLOCK           9    // blocking time
+#define TIMER_COMM_BARRIER        10    // MPI_Barrier
+#define TIMER_COMM_ALLGATHER      11    // MPI_Allgather
+#define TIMER_COMM_ALLGATHERV     12    // MPI_Allgather
+#define TIMER_MEM_ALLOCATE        13    // memory allocation
+#define TIMER_LB_CHECK            14    // check
+#define TIMER_LB_RP               15    // repartition
+#define TIMER_LB_MIGRATE          16    // migrate
+#define TIMER_LB_SPLIT            17    // split
+#define TIMER_NUM                 18
 
 
 // Counters
@@ -99,7 +102,10 @@ extern char timestr[];
 #define COUNTER_POWER_LIMIT        21   // power limit 
 #define COUNTER_PACKAGE_ENERGY     22   // PACKAGE energy
 #define COUNTER_DRAM_ENERGY        23   // DRAM energy
-#define COUNTER_NUM                24
+#define COUNTER_MAP_ENERGY         24   // PACKAGE energy for map phase
+#define COUNTER_REDUCE_ENERGY      25   // PACKAGE energy for reduce phase 
+#define COUNTER_OUTPUT_ENERGY      26   // PACKAGE energy for output phase 
+#define COUNTER_NUM                27
 
 /// Events
 #define EVENT_COMPUTE_APP          "event_compute_app"          // application computation
@@ -170,9 +176,9 @@ extern char timestr[];
 #define PROFILER_END
 #define PROFILER_RECORD_TIME_START
 #define PROFILER_RECORD_TIME_END(timer_type)
+#define PROFILER_RECORD_TIME(timer_type, time, op)
 #define PROFILER_RECORD_COUNT(counter_type, count, op)
 #define PROFILER_PRINT(filename)
-
 #else
 
 #define PROFILER_START                                                         \
@@ -196,6 +202,17 @@ extern char timestr[];
     profiler_timer[timer_type] +=                                              \
         (MR_GET_WTIME() - profiler_info.prev_wtime);
 
+#define PROFILER_RECORD_TIME(timer_type, time, op)                             \
+{                                                                              \
+    if (op == OPSUM) {                                                         \
+        profiler_timer[timer_type] += time;                                    \
+    } else if (op == OPMAX) {                                                  \
+        if (profiler_timer[timer_type] < time) {                               \
+            profiler_timer[timer_type] = time;                                 \
+        }                                                                      \
+    }                                                                          \
+}
+
 #define PROFILER_RECORD_COUNT(counter_type, count, op)                         \
 {                                                                              \
     if (op == OPSUM) {                                                         \
@@ -206,6 +223,62 @@ extern char timestr[];
         }                                                                      \
     }                                                                          \
 }
+
+#if HAVE_LIBPAPI
+
+#define PROFILER_PRINT(filename)                                               \
+{                                                                              \
+    profiler_timer[TIMER_TOTAL] = MR_GET_WTIME() - init_wtime;                 \
+    profiler_counter[COUNTER_PEAKMEM_USE] = peakmem;                           \
+    char fullname[1024];                                                       \
+    FILE *fp = NULL;                                                           \
+    if (mimir_world_rank == 0) {                                               \
+        sprintf(fullname, "%s_%s_profile.txt", filename, timestr);             \
+        printf("filename=%s\n", fullname);                                     \
+        fp = fopen(fullname, "w+");                                            \
+        if (!fp) LOG_ERROR("Create file %s error!\n", fullname);               \
+        fprintf(fp, "testtime,rank,size");                                     \
+        for(int i=0; i<TIMER_NUM; i++) fprintf(fp, ",%s", timer_str[i]);       \
+        for(int i=0; i<COUNTER_NUM; i++) fprintf(fp, ",%s", counter_str[i]);   \
+        for(int i=0; i<num_events; i++) fprintf(fp, ",%s", event_names[i]);    \
+        fprintf(fp, "\n%s,0,%d", timestr, mimir_world_size);                   \
+        for(int i=0; i<TIMER_NUM; i++) fprintf(fp, ",%g", profiler_timer[i]);  \
+        for(int i=0; i<COUNTER_NUM; i++)                                       \
+            fprintf(fp, ",%ld", profiler_counter[i]);                          \
+        for(int i=0; i<num_events; i++)                                        \
+            fprintf(fp, ",%ld", event_values[i]);                              \
+    }                                                                          \
+    if (mimir_world_rank == 0) {                                               \
+        MPI_Status st;                                                         \
+        for (int i = 1; i < mimir_world_size; i++) {                           \
+            fprintf(fp, "\n%s,%d,%d", timestr, i, mimir_world_size);           \
+            MPI_Recv(profiler_timer, TIMER_NUM, MPI_DOUBLE,                    \
+                     i, STAT_TIMER_TAG, mimir_world_comm, &st);                \
+            for (int i = 0; i < TIMER_NUM; i++)                                \
+                fprintf(fp, ",%g", profiler_timer[i]);                         \
+            MPI_Recv(profiler_counter, COUNTER_NUM, MPI_UINT64_T,              \
+                     i, STAT_COUNTER_TAG, mimir_world_comm, &st);              \
+            for (int i = 0; i < COUNTER_NUM; i++)                              \
+                fprintf(fp, ",%ld", profiler_counter[i]);                      \
+            MPI_Recv(event_values, num_events, MPI_INT64_T,                    \
+                     i, STAT_COUNTER_TAG, mimir_world_comm, &st);              \
+            for (int i = 0; i < num_events; i++)                               \
+                fprintf(fp, ",%ld", event_values[i]);                          \
+        }                                                                      \
+    } else {                                                                   \
+        MPI_Send(profiler_timer, TIMER_NUM, MPI_DOUBLE,                        \
+                 0, STAT_TIMER_TAG, mimir_world_comm);                         \
+        MPI_Send(profiler_counter, COUNTER_NUM, MPI_UINT64_T,                  \
+                 0, STAT_COUNTER_TAG, mimir_world_comm);                       \
+        MPI_Send(event_values, num_events, MPI_INT64_T,                        \
+                 0, STAT_COUNTER_TAG, mimir_world_comm);                       \
+    }                                                                          \
+    if (mimir_world_rank == 0) fclose(fp);                                     \
+    MPI_Barrier(mimir_world_comm);                                             \
+}
+
+
+#else
 
 #define PROFILER_PRINT(filename)                                               \
 {                                                                              \
@@ -248,6 +321,8 @@ extern char timestr[];
     if (mimir_world_rank == 0) fclose(fp);                                     \
     MPI_Barrier(mimir_world_comm);                                             \
 }
+
+#endif
 
 #endif
 
