@@ -40,8 +40,10 @@ int main (int argc, char *argv[])
 
     MimirContext<uint64_t, void>* ctx
         = new MimirContext<uint64_t, void>();
-    ctx->map(map, NULL, false);
+    uint64_t count = ctx->map(map, NULL, false);
     delete ctx;
+
+    if (rank == 0) printf("count=%ld\n", count);
 
     MPI_Finalize();
 }
