@@ -73,7 +73,6 @@ void reduce (Readable<uint64_t, void> *input,
              Writable<uint64_t, void> *output, void *ptr) 
 {
     uint64_t key = 0;
-    uint64_t val = 0;
-    input->read(&key, &val);
+    input->read(&key, NULL);
     output->write(&key, NULL);
 }

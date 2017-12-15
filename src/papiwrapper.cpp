@@ -22,20 +22,20 @@ long long event_values[MAX_PAPI_EVENTS];
 char event_names[MAX_PAPI_EVENTS][PAPI_MAX_STR_LEN];
 
 const int eventlist[] = {
-    PAPI_TOT_CYC,
-    PAPI_TOT_INS,
-    PAPI_L1_DCM,
-    PAPI_L1_ICM,
-    PAPI_L1_TCM,
-    PAPI_L1_LDM,
-    PAPI_L1_DCA,
-    PAPI_L1_ICH,
-    PAPI_L1_ICA,
-    PAPI_L2_TCM,
-    PAPI_L2_LDM,
-    PAPI_L2_TCH,
-    PAPI_L2_TCA,
-    PAPI_RES_STL,
+    //PAPI_TOT_CYC,
+    //PAPI_TOT_INS,
+    //PAPI_L1_DCM,
+    //PAPI_L1_ICM,
+    //PAPI_L1_TCM,
+    //PAPI_L1_LDM,
+    //PAPI_L1_DCA,
+    //PAPI_L1_ICH,
+    //PAPI_L1_ICA,
+    //PAPI_L2_TCM,
+    //PAPI_L2_LDM,
+    //PAPI_L2_TCH,
+    //PAPI_L2_TCA,
+    //PAPI_RES_STL,
     0
 };
 
@@ -74,28 +74,28 @@ void papi_event_init() {
     }
 
     // Add general events
-    for (i = 0; eventlist[i] != 0; i++) { 
-        retval = PAPI_event_code_to_name(eventlist[i], event_names[num_events]);
-        if (retval != PAPI_OK) {
-            LOG_ERROR("Error from PAPI_event_code_to_name!\n");
-        }
-        retval = PAPI_add_event(EventSet, eventlist[i]);
-        if (retval != PAPI_OK) continue;
-        num_events ++;
-    }
+    //for (i = 0; eventlist[i] != 0; i++) { 
+    //    retval = PAPI_event_code_to_name(eventlist[i], event_names[num_events]);
+    //    if (retval != PAPI_OK) {
+    //        LOG_ERROR("Error from PAPI_event_code_to_name!\n");
+    //    }
+    //    retval = PAPI_add_event(EventSet, eventlist[i]);
+    //    if (retval != PAPI_OK) continue;
+    //    num_events ++;
+    //}
 
     // Add native events
-    for (i = 0; nativeeventlist[i] != NULL; i++) {
-        int EventCode;
-        retval = PAPI_event_name_to_code(nativeeventlist[i], &EventCode);
-        if (retval != PAPI_OK) {
-            LOG_ERROR("Error from PAPI_event_name_to_code!\n");
-        }
-        retval = PAPI_add_event(EventSet, EventCode);
-        if (retval != PAPI_OK) continue;
-        strcpy(event_names[num_events], nativeeventlist[i]);
-        num_events ++;
-    }
+    //for (i = 0; nativeeventlist[i] != NULL; i++) {
+    //    int EventCode;
+    //    retval = PAPI_event_name_to_code(nativeeventlist[i], &EventCode);
+    //    if (retval != PAPI_OK) {
+    //        LOG_ERROR("Error from PAPI_event_name_to_code!\n");
+    //    }
+    //    retval = PAPI_add_event(EventSet, EventCode);
+    //    if (retval != PAPI_OK) continue;
+    //    strcpy(event_names[num_events], nativeeventlist[i]);
+    //    num_events ++;
+    //}
 
 
     numcmp = PAPI_num_components();
@@ -122,6 +122,11 @@ void papi_event_init() {
 	    if (retval != PAPI_OK) {
 		    LOG_ERROR("Error from PAPI_event_code_to_name! retval=%d\n", retval);
 	    }
+	    if (!strstr(event_names[num_events], "ENERGY_UJ") 
+                && !strstr(event_names[num_events], "POWER_LIMIT")) {
+ 	        r = PAPI_enum_cmp_event(&code, PAPI_ENUM_EVENTS, powercap_cid);
+                continue;
+            }
 	    retval = PAPI_add_event(EventSet, code);
 	    if (retval != PAPI_OK) break;
 	    if (!(strstr(event_names[num_events], "SUBZONE"))
@@ -133,6 +138,7 @@ void papi_event_init() {
 	    r = PAPI_enum_cmp_event(&code, PAPI_ENUM_EVENTS, powercap_cid);
     }
 }
+
 
 void papi_event_uinit() {
 
