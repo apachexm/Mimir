@@ -5,7 +5,7 @@ supercomputing systems. The inefficient memory use of
 library.
 
 The code is still under development. If you find any problems, please contact us
-at taogao@udel.edu.
+at tao.gao.nudt@hotmail.com.
 
 # Publications
 Tao Gao, Yanfei Guo, Boyu Zhang, Pietro Cicotti, Yutong Lu, Pavan Balaji, and
@@ -27,7 +27,7 @@ Systems (ICPADS) 2017.
 * git clone https://github.com/TauferLab/Mimir.git
 * cd Mimir
 * autoreconf -i
-* ./configure --perfix=/mimir/install/directory
+* ./configure --prefix=/mimir/install/directory
 * make
 * make install
 
