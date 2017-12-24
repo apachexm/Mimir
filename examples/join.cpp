@@ -33,6 +33,12 @@ struct SingleVal {
     int      tag;   // dataset id
     ValType  val;   // autual value
 
+    std::stringstream& operator<<(std::stringstream& ss)
+    {
+        //ss << this->tag;
+        return ss;
+    }
+
     std::stringstream& operator>>(std::stringstream& ss)
     {
         ss << this->tag;
@@ -43,6 +49,12 @@ struct SingleVal {
 struct JoinedVal {
     ValType1     val1; // value from dataset 1
     ValType2     val2; // value from dataset 2
+
+    std::stringstream& operator<<(std::stringstream& ss)
+    {
+        //ss << this->tag;
+        return ss;
+    }
 
     std::stringstream& operator>>(std::stringstream& ss)
     {
@@ -93,32 +105,36 @@ int main (int argc, char *argv[])
     // Get Dataset1
     int datatag = 0;
     MimirContext<KeyType, SingleVal, char*, void>* data1 
-        = new MimirContext<KeyType, SingleVal, char*, void>(input1);
+        = new MimirContext<KeyType, SingleVal, char*, void>(input1,
+                                                            std::string(),
+                                                            "text");
     datatag = DATA1_TAG;
     uint64_t nitem1 = data1->map(read_dataset, &datatag, false);
 
     // Get Dataset2
     MimirContext<KeyType, SingleVal, char*, void>* data2 
-        = new MimirContext<KeyType, SingleVal, char*, void>(input2);
+        = new MimirContext<KeyType, SingleVal, char*, void>(input2,
+                                                            std::string(),
+                                                            "text");
     datatag = DATA2_TAG;
     uint64_t nitem2 = data2->map(read_dataset, &datatag, false);
 
     // Merge Dataset1 and Dataset2
     MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>* ctx 
         = new MimirContext<KeyType, SingleVal, KeyType, SingleVal, KeyType, JoinedVal>(
-            std::vector<std::string>(), output, MPI_COMM_WORLD);
+            std::vector<std::string>(), output, "null", "text", MPI_COMM_WORLD);
     ctx->insert_data_handle(data1->get_data_handle());
     ctx->insert_data_handle(data2->get_data_handle());
 #ifndef SPLIT_HINT
     nitem = ctx->map(map);
 #else
-    nitem = ctx->map(map, NULL, true, false, "", true);
+    nitem = ctx->map(map, NULL, true, false, true);
     ctx->scan_split_keys(get_split_key);
 #endif
     delete data1;
     delete data2;
 
-    ngroup = ctx->reduce(reduce, NULL, true, "text");
+    ngroup = ctx->reduce(reduce, NULL, true);
 
 #ifndef SPLIT_HINT
     if (rank == 0) {

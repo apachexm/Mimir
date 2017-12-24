@@ -15,45 +15,65 @@
 #include "hbwmalloc.h"
 #endif
 
-#include "powerlimit.h"
+#include "papiwrapper.h"
 
 void get_default_values();
+
+MPI_Comm mimir_shared_comm;
+int mimir_shared_rank, mimir_shared_size;
 
 void mimir_init(){
     //MPI_Comm_dup(comm, &mimir_world_comm);
     mimir_world_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(MPI_COMM_WORLD, &mimir_world_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mimir_world_size);
+    MPI_Comm_split_type(mimir_world_comm, MPI_COMM_TYPE_SHARED,
+                        mimir_world_rank, MPI_INFO_NULL,
+                        &mimir_shared_comm);
+    MPI_Comm_rank(mimir_shared_comm, &mimir_shared_rank);
+    MPI_Comm_size(mimir_shared_comm, &mimir_shared_size);
+
     char hostname[1024];
     gethostname(hostname, 1024);
     printf("%d[%d] Mimir Initialize... (pid=%d,host=%s)\n",
            mimir_world_rank, mimir_world_size, getpid(), hostname);
-    INIT_STAT();
     get_default_values();
+#if HAVE_LIBPAPI 
+    papi_init(mimir_shared_comm);
+    papi_event_init();
+    papi_start();
+#endif
+    INIT_STAT;
 #if HAVE_LIBMEMKIND
     printf("%d[%d] set hbw policy\n",
            mimir_world_rank, mimir_world_size);
     hbw_set_policy(HBW_POLICY_BIND);   
 #endif
-    if (LIMIT_POWER) {
-        init_power_limit();
-        set_power_limit(LIMIT_SCALE);        
-    }
 }
 
 void mimir_finalize()
 {
-    if (LIMIT_POWER) {
-        set_power_limit(1.0);
-        uinit_power_limit();
-    }
+    const char *filename = "Mimir";
     if (STAT_FILE) {
-        mimir_stat(STAT_FILE);
+        filename = STAT_FILE;
     }
-    else mimir_stat("Mimir");
+    GET_CUR_TIME;
+    TRACKER_RECORD_EVENT(EVENT_COMPUTE_APP);
+    int64_t vmsize = get_mem_usage();
+    if (vmsize > peakmem) peakmem = vmsize;
+#if HAVE_LIBPAPI
+    //papi_print();
+    papi_stop();
+    papi_event_uinit();      
+    papi_uinit();
+#endif
+    if (OUTPUT_STAT) PROFILER_PRINT(filename);
+    if (OUTPUT_TRACE) TRACKER_PRINT(filename);
     UNINIT_STAT;
+    MPI_Comm_free(&mimir_shared_comm);
 }
 
+#if 0
 void mimir_stat(const char* filename)
 {
     GET_CUR_TIME;
@@ -65,6 +85,7 @@ void mimir_stat(const char* filename)
     if (OUTPUT_STAT) PROFILER_PRINT(filename);
     if (OUTPUT_TRACE) TRACKER_PRINT(filename);
 }
+#endif
 
 int64_t convert_to_int64(const char *_str)
 {
@@ -233,6 +254,16 @@ void get_default_values()
     }
 
     /// Features
+    // shuffle cb or not
+    env = getenv("MIMIR_SHUFFLE_CB");
+    if (env) {
+        SHUFFLE_CB = atoi(env);
+    }
+    // stream io or not
+    env = getenv("MIMIR_STREAM_IO");
+    if (env) {
+        STREAM_IO = atoi(env);
+    }
     // work steal or not
     env = getenv("MIMIR_WORK_STEAL");
     if (env) {
@@ -429,7 +460,7 @@ Library configuration:\n\
 \tshuffle type: %d (0 - MPI_Alltoallv; 1 - MPI_Ialltoallv [%d,%d])\n\
 \treader type: %d (0 - POSIX; 1 - MPIIO) direct read=%d\n\
 \twriter type: %d (0 - POSIX; 1 - MPIIO) direct write=%d\n\
-\twork stealing: %d (make progress=%d)\n\
+\tshuffle cb:%d, stream I/O: %d, work stealing: %d (make progress=%d)\n\
 \tload balance: balance=%d, factor=%.2lf, bin=%d, freq=%d\n\
 \tMCDRAM: use_mcdram=%d\n\
 \tpower capping: limit power=%d, limit scale=%.2lf\n\
@@ -438,7 +469,7 @@ Library configuration:\n\
         COMM_BUF_SIZE, DATA_PAGE_SIZE, INPUT_BUF_SIZE, BUCKET_COUNT, MAX_RECORD_SIZE,
         SHUFFLE_TYPE, MIN_SBUF_COUNT, MAX_SBUF_COUNT,
         READ_TYPE, DIRECT_READ, WRITE_TYPE, DIRECT_WRITE,
-        WORK_STEAL, MAKE_PROGRESS,
+        SHUFFLE_CB, STREAM_IO, WORK_STEAL, MAKE_PROGRESS,
         BALANCE_LOAD, BALANCE_FACTOR, BIN_COUNT, BALANCE_FREQ,
         USE_MCDRAM,
         LIMIT_POWER, LIMIT_SCALE,

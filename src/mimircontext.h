@@ -33,6 +33,7 @@
 #include "nbcombinecollectiveshuffler.h"
 #include "filereader.h"
 #include "filewriter.h"
+#include "fileparser.h"
 #include "hashbucket.h"
 
 #include <vector>
@@ -52,6 +53,8 @@ class MimirContext {
     // Initialize Mimir Context
     MimirContext(std::vector<std::string> input_files = std::vector<std::string>(),
                  std::string output_files = std::string(),
+                 std::string infile_format = "null",
+                 std::string outfile_format = "null",
                  MPI_Comm mimir_comm = MPI_COMM_WORLD,
                  void (*combine_fn)(Combinable<KeyType,ValType> *output,
                                     KeyType* key,
@@ -59,12 +62,13 @@ class MimirContext {
                                     void *ptr) = NULL,
                  int (*partition_fn)(KeyType* key, ValType *val,
                                      int npartition) = NULL,
-                 int (*padding_fn)(const char* buf, int buflen,
+                 int (*padding_fn)(uint64_t foff, const char* buf, int buflen,
                                    bool islast) = NULL,
                  int keycount = 1, int valcount = 1,
                  int inkeycount = 1, int invalcount = 1,
                  int outkeycount = 1, int outvalcount = 1) {
         _init(input_files, output_files,
+              infile_format, outfile_format,
               mimir_comm,
               combine_fn, partition_fn, padding_fn,
               keycount, valcount,
@@ -102,7 +106,6 @@ class MimirContext {
                  void *ptr = NULL,
                  bool do_shuffle = true,
                  bool output_file = false,
-                 std::string outfile_format = "binary",
                  bool split_hint = false)
     {
         BaseShuffler<KeyType,ValType> *c = NULL;
@@ -110,12 +113,15 @@ class MimirContext {
         std::vector<Readable<InKeyType,InValType>*> inputs;
         UnitedDataset<InKeyType,InValType> *united_input = NULL;
         Writable<KeyType,ValType> *output = NULL;
-        FileReader<TextFileFormat,KeyType,ValType,InKeyType,InValType> *reader = NULL;
+        FileReader<KeyType,ValType,InKeyType,InValType> *reader = NULL;
         FileWriter<KeyType,ValType> *writer = NULL;
         ChunkManager<KeyType,ValType> *chunk_mgr = NULL;
 
         TRACKER_RECORD_EVENT(EVENT_COMPUTE_APP);
-
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
         if (user_map == NULL)
             LOG_ERROR("Please set map callback\n");
 
@@ -132,7 +138,6 @@ class MimirContext {
         }
         // Input from this context
         if (database != NULL) {
-            //reinterpret_cast<BaseDatabase<KeyType,ValType>*>
             Readable<InKeyType,InValType>* input = dynamic_cast<Readable<InKeyType,InValType>*>(database);
             if (input == NULL) LOG_ERROR("Cannot convert database into input format!\n");
             inputs.push_back(input);
@@ -148,7 +153,7 @@ class MimirContext {
             }
             else
                 chunk_mgr = new ChunkManager<KeyType,ValType>(mimir_ctx_comm, input_dir, BYNAME);
-            reader = FileReader<TextFileFormat,KeyType,ValType,InKeyType,InValType>::getReader(mimir_ctx_comm,
+            reader = FileReader<KeyType,ValType,InKeyType,InValType>::getReader(infile_format, mimir_ctx_comm,
                                                                                                chunk_mgr, user_padding,
                                                                                                keycount, valcount,
                                                                                                inkeycount, invalcount);
@@ -191,7 +196,7 @@ class MimirContext {
         // Map with shuffle
         if (do_shuffle) {
             // Map with combiner
-            if (!user_combine) {
+            if (!user_combine || !SHUFFLE_CB) {
                 if (split_hint) {
                     if (h != NULL) delete h;
                     h = new HashBucket<>(1, true);
@@ -344,8 +349,15 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
         PROFILER_RECORD_COUNT(COUNTER_MAX_KVS, kv_records, OPMAX);
-
+        PROFILER_RECORD_TIME(TIMER_MAP, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
+        PROFILER_RECORD_COUNT(COUNTER_MAP_ENERGY, stop_e - start_e, OPSUM)
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: map done (KVs=%ld, peakmem=%ld)\n", kv_records, peakmem);
 
         return total_records;
@@ -354,14 +366,18 @@ class MimirContext {
     uint64_t reduce(void (*user_reduce)(Readable<KeyType,ValType> *input,
                                         Writable<OutKeyType,OutValType> *output, void *ptr) = NULL,
                     void *ptr = NULL,
-                    bool output_file = false,
-                    std::string outfile_format = "binary") {
+                    bool output_file = false) {
 
         KVContainer<OutKeyType,OutValType> *kv = NULL;
         KMVContainer<KeyType,ValType> *kmv = NULL;
         FileWriter<OutKeyType,OutValType> *writer = NULL;
         Readable<KeyType,ValType> *input = NULL;
         Writable<OutKeyType,OutValType> *output = NULL;
+
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
 
         if (user_reduce == NULL) {
             LOG_ERROR("Please set reduce callback!\n");
@@ -435,16 +451,29 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
+        PROFILER_RECORD_TIME(TIMER_REDUCE, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
+        PROFILER_RECORD_COUNT(COUNTER_REDUCE_ENERGY, stop_e - start_e, OPSUM)
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: reduce done\n");
 
         return total_records;
     }
 
-    uint64_t output(std::string outfile_format = "binary") {
+    uint64_t output() {
 
         typename SafeType<OutKeyType>::type key[keycount];
         typename SafeType<OutValType>::type val[valcount];
         Readable<OutKeyType,OutValType> *output = NULL;
+
+        double start_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t start_e = papi_powercap_energy(); 
+#endif
 
         if (database == NULL)
             LOG_ERROR("No data to output!\n");
@@ -476,6 +505,14 @@ class MimirContext {
                       MPI_INT64_T, MPI_SUM, mimir_ctx_comm);
         PROFILER_RECORD_TIME_END(TIMER_COMM_RDC);
 
+        double stop_t = MR_GET_WTIME();
+#if HAVE_LIBPAPI
+        int64_t stop_e = papi_powercap_energy(); 
+#endif
+        PROFILER_RECORD_TIME(TIMER_OUTPUT, stop_t - start_t, OPSUM)
+#if HAVE_LIBPAPI
+        PROFILER_RECORD_COUNT(COUNTER_OUTPUT_ENERGY, stop_e - start_e, OPSUM)
+#endif
         LOG_PRINT(DBG_GEN, "MapReduce: output done\n");
 
         return total_records;
@@ -565,13 +602,15 @@ class MimirContext {
   private:
     void _init(std::vector<std::string> &input_dir,
                std::string &output_dir,
+               std::string infile_format,
+               std::string outfile_format,
                MPI_Comm ctx_comm,
                void (*combine_fn)(Combinable<KeyType,ValType> *output,
                                   KeyType* key,
                                   ValType* val1, ValType* val2, ValType* val3,
                                   void *ptr),
                int (*partition_fn)(KeyType* key, ValType* val, int npartition),
-               int (*padding_fn)(const char* buf, int buflen, bool islast),
+               int (*padding_fn)(uint64_t foff, const char* buf, int buflen, bool islast),
                int keycount, int valcount,
                int inkeycount, int invalcount,
                int outkeycount, int outvalcount) {
@@ -589,10 +628,42 @@ class MimirContext {
 
         this->user_combine = combine_fn;
         this->user_partition = partition_fn;
-        if (padding_fn == NULL) padding_fn = text_file_repartition;
-        this->user_padding = padding_fn;
         this->input_dir = input_dir;
         this->output_dir = output_dir;
+        this->infile_format = infile_format;
+        this->outfile_format = outfile_format;
+        this->user_padding = padding_fn;
+
+        if (infile_format == "text" ) {
+            if (std::is_pointer<InKeyType>::value
+                && std::is_void<InValType>::value) {
+            } else {
+                LOG_ERROR("The KV must be <char*,void> or <const char*,void> of text file!\n");
+            }
+        }
+        if (infile_format != "null" 
+            && infile_format != "text" 
+            && infile_format != "binary") {
+            LOG_ERROR("Input file format (%s) error!\n", infile_format.c_str());
+        }
+        if (outfile_format != "null"
+            && outfile_format != "text"
+            && outfile_format != "binary") {
+            LOG_ERROR("Output file format (%s) error!\n", outfile_format.c_str());
+        }
+
+        // Set default padding function
+        if (this->user_padding == NULL) {
+            if (infile_format == "text") {
+                if (STREAM_IO) this->user_padding = text_file_padding;
+            }
+            //else if (infile_format == "binary") {
+            //    if (!std::is_pointer<InKeyType>::value
+            //        && !std::is_pointer<InValType>::value) {
+            //        this->user_padding = binary_file_padding;
+            //    }
+            //}
+        }
 
         database = user_database = NULL;
         in_databases.clear();
@@ -642,11 +713,13 @@ class MimirContext {
     void (*user_combine)(Combinable<KeyType,ValType> *output,
                          KeyType* key, ValType* val1, ValType* val2, ValType *val3, void *ptr);
     int (*user_partition)(KeyType* key, ValType *val, int npartition);
-    int (*user_padding)(const char* buf, int buflen, bool islast);
+    int (*user_padding)(uint64_t foff, const char* buf, int buflen, bool islast);
 
     // Configurations
-    std::vector<std::string> input_dir;    // Input files
-    std::string              output_dir;   // Output files
+    std::vector<std::string>  input_dir;    // Input files
+    std::string              output_dir;    // Output files
+    std::string           infile_format;    // input file format
+    std::string           outfile_format;   // output file format
 
     // Count for <Key,Value>
     int         keycount, valcount;

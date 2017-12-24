@@ -135,11 +135,14 @@ class ChunkManager {
         msg_list[msg_idx].msg_req = MPI_REQUEST_NULL;
         msg_list[msg_idx].msg_size = bufsize;
         msg_list[msg_idx].msg_chunk = chunk;
+        if (bufsize > MAX_RECORD_SIZE)
+            LOG_ERROR("Record size (%d) is larger than max record size (%d)!\n",
+                      bufsize, MAX_RECORD_SIZE);
         memcpy(msg_list[msg_idx].msg_buf, buffer, bufsize);
 
         if (msg_list[msg_idx].target_rank != PROC_RANK_PENDING) {
             LOG_PRINT(DBG_CHUNK, "Chunk: send head (%d) of chunk <%d,%d> to %d\n",
-                      bufsize, chunk.procrank, chunk.localid, msg_list[msg_idx].target_rank);
+                      msg_list[msg_idx].msg_size, chunk.procrank, chunk.localid, msg_list[msg_idx].target_rank);
             MPI_Isend(msg_list[msg_idx].msg_buf, msg_list[msg_idx].msg_size, 
                       MPI_BYTE, msg_list[msg_idx].target_rank, CHUNK_TAIL_TAG,
                       chunk_mgr_comm, &(msg_list[msg_idx].msg_req));

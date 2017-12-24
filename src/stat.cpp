@@ -17,6 +17,9 @@ char timestr[1024];
 
 const char *timer_str[TIMER_NUM] = {
     "total_time",
+    "map_time",
+    "reduce_time",
+    "output_time",
     "pfs_input_time",
     "pfs_output_time",
     "mpi_a2a_time",
@@ -55,7 +58,17 @@ const char *counter_str[COUNTER_NUM] = {
     "max_kmv_pages",
     "hash_bucket",
     "peakmem_use",
+    "power_limit",
+    "package_energy",
+    "dram_energy",
+    "map_package_energy",
+    "reduce_package_energy",
+    "output_package_energy",
 };
 
 Tracker_info tracker_info;
 std::vector <std::pair<std::string, double>> *tracker_event = NULL;
+
+#if HAVE_LIBPAPI
+std::vector <int64_t> *tracker_power = NULL;
+#endif

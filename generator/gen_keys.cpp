@@ -46,6 +46,7 @@ int main(int argc, char **argv) {
 
     MIMIR_NS::MimirContext<const char*, void>* ctx 
         = new MIMIR_NS::MimirContext<const char*, void>(input, output,
+                                                        "text", "text",
                                                         MPI_COMM_WORLD,
                                                         combine);
 
@@ -62,7 +63,7 @@ int main(int argc, char **argv) {
     }
 
     // Output words to files
-    ctx->output("text");
+    ctx->output();
     delete ctx;
 
     if (proc_rank == 0) {

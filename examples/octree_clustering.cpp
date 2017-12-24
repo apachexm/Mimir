@@ -86,6 +86,7 @@ int main(int argc, char **argv)
 
     MimirContext<char, void, char*, void> *ctx 
         = new MimirContext<char, void, char*, void>(input, output,
+                                                    "text", "text",
                                                         MPI_COMM_WORLD,
                                                         NULL, NULL, NULL,
                                                         digits, 1, 1, 1);
@@ -100,6 +101,7 @@ int main(int argc, char **argv)
         MimirContext<char, uint64_t, char, void> *level_ctx 
             = new MimirContext<char, uint64_t, char, void>(std::vector<std::string>(),
                                                                std::string(),
+                                                               "null", "null",
                                                                MPI_COMM_WORLD,
 #ifdef COMBINER
                                                                combine,
@@ -132,6 +134,7 @@ int main(int argc, char **argv)
         = new MimirContext<char, uint64_t, char, void, FinalVal, uint64_t>(
                                                            std::vector<std::string>(),
                                                            output,
+                                                           "null", "text",
                                                            MPI_COMM_WORLD,
 #ifdef COMBINER
                                                            combine,
@@ -145,7 +148,7 @@ int main(int argc, char **argv)
 
     level_ctx->insert_data_handle(ctx->get_data_handle());
     level_ctx->map(gen_leveled_octkey);
-    level_ctx->reduce(dump, NULL, true, "text");
+    level_ctx->reduce(dump, NULL, true);
     delete level_ctx;
 
     delete ctx;

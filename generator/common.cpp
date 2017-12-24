@@ -96,7 +96,7 @@ void print_dist_map(uint64_t zipf_n, double zipf_alpha, double *dist_map) {
     MPI_Comm_size(MPI_COMM_WORLD, &proc_size);
 
     if (proc_size > zipf_n) {
-        fprintf(stderr, "The process count should larger n!\n");
+        fprintf(stderr, "The process count should not larger n!\n");
         exit(1);
     }
 

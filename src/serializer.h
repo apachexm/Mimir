@@ -244,18 +244,18 @@ class bytestream<void> {
 template <typename Type, typename dummy = Type>
 class txtstream {
   public:
-#if 0
-    static int size (Type *obj, int count) {
+    static int from_txt (Type* obj, int count,
+                         char *buf, int bufsize) {
         int bytesize = 0;
+        std::stringstream ss;
+        ss << buf;
+        int strsize = (int)strlen(buf) + 1;
         for (int i = 0; i < count; i++) {
-            std::stringstream ss;
-            ss << obj[i];
-            int strsize = (int)ss.str().size();
-            bytesize += strsize;
+            ss >> obj[i];
         }
+        bytesize = strsize;
         return bytesize;
     }
-#endif
 
     static int to_txt (Type* obj, int count,
                        char *buf, int bufsize) {
@@ -278,15 +278,21 @@ class txtstream {
 template <typename Type>
 class txtstream<Type,typename std::enable_if<std::is_class<Type>::value, Type>::type> {
   public:
-    //static int size (void *obj, int count) {
-    //    LOG_ERROR("Cannot convert a class to string!\n");
-    //    return 0;
-    //}
+    static int from_txt (Type* obj, int count,
+                         char *buf, int bufsize) {
+        int bytesize = 0;
+        std::stringstream ss;
+        ss << buf;
+        int strsize = (int)strlen(buf) + 1;
+        for (int i = 0; i < count; i++) {
+            obj[i] << ss;
+        }
+        bytesize = strsize;
+        return bytesize;
+    }
 
     static int to_txt (Type* obj, int count,
                        char *buf, int bufsize) {
-        //LOG_ERROR("Cannot convert a class to string!\n");
-        //return 0;
         int bytesize = 0;
         for (int i = 0; i < count; i++) {
             std::stringstream ss;
@@ -302,13 +308,79 @@ class txtstream<Type,typename std::enable_if<std::is_class<Type>::value, Type>::
     }
 };
 
+template <>
+class txtstream<char*,char*> {
+  public:
+    static int from_txt (char** obj, int count,
+                         char *buf, int bufsize) {
+        int bytesize = 0;
+        for (int i = 0; i < count; i++) {
+            obj[i] = buf;
+            int strsize = (int)strlen(buf) + 1;
+            bytesize += strsize;
+            buf += strsize;
+        }
+        return bytesize;
+    }
+
+    static int to_txt (char** obj, int count,
+                       char *buf, int bufsize) {
+        int bytesize = 0;
+        for (int i = 0; i < count; i++) {
+            std::stringstream ss;
+            ss << obj[i];
+            const char *strptr = ss.str().c_str();
+            int strsize = (int)ss.str().size();
+            if (bufsize < strsize) return -1;
+            memcpy(buf + bytesize, strptr, strsize);
+            bytesize += strsize;
+            bufsize -= strsize;
+        }
+        return bytesize;
+    }
+};
+
+template <>
+class txtstream<const char*,const char*> {
+  public:
+    static int from_txt (const char** obj, int count,
+                         char *buf, int bufsize) {
+        int bytesize = 0;
+        for (int i = 0; i < count; i++) {
+            obj[i] = buf;
+            int strsize = (int)strlen(buf) + 1;
+            bytesize += strsize;
+            buf += strsize;
+        }
+        return bytesize;
+    }
+
+    static int to_txt (const char** obj, int count,
+                       char *buf, int bufsize) {
+        int bytesize = 0;
+        for (int i = 0; i < count; i++) {
+            std::stringstream ss;
+            ss << obj[i];
+            const char *strptr = ss.str().c_str();
+            int strsize = (int)ss.str().size();
+            if (bufsize < strsize) return -1;
+            memcpy(buf + bytesize, strptr, strsize);
+            bytesize += strsize;
+            bufsize -= strsize;
+        }
+        return bytesize;
+    }
+};
+
 // the type is void
 template <>
 class txtstream<void,void> {
   public:
-    //static int size (void *obj, int count) {
-    //    return 0;
-    //}
+
+    static int from_txt (void* obj, int count,
+                       char *buf, int bufsize) {
+        return 0;
+    }
 
     static int to_txt (void* obj, int count,
                        char *buf, int bufsize) {
@@ -507,6 +579,33 @@ class Serializer {
         buffer += 1;
         bufsize -= 1;
         sepsize += 1;
+
+        return keybytes + valbytes + sepsize;
+    }
+
+    int kv_from_txt (KeyType *key, ValType *val, char *buffer, int bufsize) {
+        int keybytes = 0, valbytes = 0, sepsize = 0;
+
+        keybytes = txtstream<KeyType>::from_txt(key, keycount, buffer, bufsize);
+        if (keybytes == -1) return -1;
+        buffer += keybytes;
+        bufsize -= keybytes;
+        if (!std::is_void<ValType>::value) {
+            if (bufsize < 1) return -1;
+            //*buffer = ' ';
+            //buffer += 1;
+            //bufsize -= 1;
+            //sepsize += 1;
+            valbytes = txtstream<ValType>::from_txt(val, valcount, buffer, bufsize);
+            if (valbytes == -1) return -1;
+            buffer += valbytes;
+            bufsize -= valbytes;
+        }
+        if (bufsize < 1) return -1;
+        //*buffer = '\n';
+        //buffer += 1;
+        //bufsize -= 1;
+        //sepsize += 1;
 
         return keybytes + valbytes + sepsize;
     }

@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
 
         MIMIR_NS::MimirContext<const char*, void>* unique_words_ctx 
             = new MIMIR_NS::MimirContext<const char*, void>(std::vector<std::string>(),
-                    std::string(), MPI_COMM_WORLD, combine);
+                    std::string(), "text", "text", MPI_COMM_WORLD, combine);
 
         // Generate remain_unique words
         remain_unique = total_unique;
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
         if (disorder) {
             MIMIR_NS::MimirContext<const char*, void>* disorder_words_ctx 
                 = new MIMIR_NS::MimirContext<const char*, void>(std::vector<std::string>(),
-                        std::string(), MPI_COMM_WORLD, NULL, partition_word);
+                        std::string(), "text", "text", MPI_COMM_WORLD, NULL, partition_word);
             disorder_words_ctx->insert_data_handle(unique_words_ctx->get_data_handle());
             disorder_words_ctx->map(map_copy);
 
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
 
     MIMIR_NS::MimirContext<double, void>* num_ctx 
         = new MIMIR_NS::MimirContext<double, void>(std::vector<std::string>(),
-                std::string(), MPI_COMM_WORLD, NULL, parititon_num);
+                std::string(), "null", "null", MPI_COMM_WORLD, NULL, parititon_num);
 
     printf("%d[%d] start generate numbers\n", proc_rank, proc_size);
     fflush(stdout);
@@ -222,7 +222,7 @@ int main(int argc, char **argv) {
 
     MIMIR_NS::MimirContext<const char*, void, double, void>* word_ctx 
         = new MIMIR_NS::MimirContext<const char*, void, double, void>(
-                std::vector<std::string>(), std::string(),
+                std::vector<std::string>(), std::string(), "null", "null",
                 MPI_COMM_WORLD, NULL, partition_word);
     word_ctx->insert_data_handle(num_ctx->get_data_handle());
 
@@ -236,7 +236,7 @@ int main(int argc, char **argv) {
 
     MIMIR_NS::MimirContext<const char*, void>* partition1_ctx 
         = new MIMIR_NS::MimirContext<const char*, void>(
-                std::vector<std::string>(), std::string(),
+                std::vector<std::string>(), std::string(), "null", "null",
                 MPI_COMM_WORLD, NULL, partition_word);
     partition1_ctx->insert_data_handle(word_ctx->get_data_handle());
     partition1_ctx->map(map_copy);
@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
 
     MIMIR_NS::MimirContext<const char*, void>* partition2_ctx 
         = new MIMIR_NS::MimirContext<const char*, void>(
-                std::vector<std::string>(), std::string(),
+                std::vector<std::string>(), std::string(), "null", "null",
                 MPI_COMM_WORLD, NULL, partition_word);
     partition2_ctx->insert_data_handle(partition1_ctx->get_data_handle());
 
@@ -283,8 +283,9 @@ int main(int argc, char **argv) {
 #endif
         MIMIR_NS::MimirContext<const char*, uint64_t>* stat_ctx 
             = new MIMIR_NS::MimirContext<const char*, uint64_t>(
-                std::vector<std::string>(), std::string(filename), MPI_COMM_WORLD);
-        stat_ctx->map(map_stat, NULL, true, true, "text");
+                std::vector<std::string>(), std::string(filename),
+                "null", "text", MPI_COMM_WORLD);
+        stat_ctx->map(map_stat, NULL, true, true);
         delete stat_ctx;
     }
 

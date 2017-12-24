@@ -110,6 +110,7 @@ int main(int argc, char **argv)
     MimirContext<int64_t,int64_t,char*,void> *mimir 
         = new MimirContext<int64_t,int64_t,char*,void>(
                                                        input, output,
+                                                       "text", "text",
                                                        MPI_COMM_WORLD, 
                                                        NULL,
                                                        mypartition);
@@ -171,7 +172,9 @@ int main(int argc, char **argv)
 
     MimirContext<int64_t,int64_t>* bfs_mimir = new MimirContext<int64_t,int64_t>(
                                                  std::vector<std::string>(),
-                                                 std::string(), MPI_COMM_WORLD,
+                                                 std::string(),
+                                                 "null", "null",
+                                                 MPI_COMM_WORLD,
                                                  NULL, mypartition);
 
     // Ensure stat file being a single file
