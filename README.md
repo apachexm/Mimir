@@ -5,7 +5,7 @@ supercomputing systems. The inefficient memory use of
 library.
 
 The code is still under development. If you find any problems, please contact us
-at taogao@udel.edu.
+at tao.gao.nudt@hotmail.com.
 
 Find more information on Mimir website at
 [tauferlab.github.io/Mimir/](https://tauferlab.github.io/Mimir/).
@@ -30,7 +30,7 @@ Systems (ICPADS) 2017.
 * git clone https://github.com/TauferLab/Mimir.git
 * cd Mimir
 * autoreconf -i
-* ./configure --perfix=/mimir/install/directory
+* ./configure --prefix=/mimir/install/directory
 * make
 * make install
 
